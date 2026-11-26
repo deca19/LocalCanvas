@@ -30,17 +30,8 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/spirv-install/include"
           cp -R spirv-headers/include/spirv "$GITHUB_WORKSPACE/spirv-install/include/"
           mkdir -p "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers"
-          cat > "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake" <<'EOF'
-add_library(SPIRV-Headers INTERFACE)
-add_library(SPIRV-Headers::SPIRV-Headers ALIAS SPIRV-Headers)
-set_target_properties(SPIRV-Headers PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/../../../include")
-EOF
-          cat > "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers/SPIRV-HeadersConfigVersion.cmake" <<'EOF'
-set(PACKAGE_VERSION "1.0")
-set(PACKAGE_VERSION_COMPATIBLE TRUE)
-set(PACKAGE_VERSION_EXACT TRUE)
-EOF
+          printf '%s\n' 'add_library(SPIRV-Headers INTERFACE)' 'add_library(SPIRV-Headers::SPIRV-Headers ALIAS SPIRV-Headers)' 'set_target_properties(SPIRV-Headers PROPERTIES' '  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/../../../include")' > "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
+          printf '%s\n' 'set(PACKAGE_VERSION "1.0")' 'set(PACKAGE_VERSION_COMPATIBLE TRUE)' 'set(PACKAGE_VERSION_EXACT TRUE)' > "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers/SPIRV-HeadersConfigVersion.cmake"
           test -f "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
       - name: Fetch pinned stable-diffusion.cpp
         working-directory: project
