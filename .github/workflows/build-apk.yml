@@ -1,8 +1,6 @@
 name: Build LocalCanvas APK
-
 on:
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,14 +19,33 @@ jobs:
           SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}" -type f -name sdkmanager | head -n 1)
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-      - name: Unpack project
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Unpack base project
         run: unzip -q LocalCanvas-AndroidIDE.zip -d project
-      - name: Build APK
+      - name: Overlay native implementation
+        run: |
+          cp app/build.gradle project/app/build.gradle
+          cp app/src/main/java/com/localcanvas/app/NativeEngine.java project/app/src/main/java/com/localcanvas/app/NativeEngine.java
+          cp app/src/main/java/com/localcanvas/app/MainActivity.java project/app/src/main/java/com/localcanvas/app/MainActivity.java
+          mkdir -p project/app/src/main/cpp
+          cp app/src/main/cpp/CMakeLists.txt app/src/main/cpp/localcanvas_jni.cpp project/app/src/main/cpp/
+      - name: Fetch stable-diffusion.cpp
         working-directory: project
-        run: gradle assembleDebug --no-daemon
+        run: git clone --depth 1 --recursive https://github.com/leejet/stable-diffusion.cpp.git native/stable-diffusion.cpp
+      - name: Build debug APK with native engine
+        working-directory: project
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          gradle assembleDebug --no-daemon -PsdCppDir="$GITHUB_WORKSPACE/project/native/stable-diffusion.cpp"
+      - name: Inspect ARM64 native library
+        run: |
+          APK=project/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l "$APK" | grep 'lib/arm64-v8a/liblocalcanvas_native.so'
+          unzip -p "$APK" 'lib/arm64-v8a/liblocalcanvas_native.so' > /tmp/liblocalcanvas_native.so
+          file /tmp/liblocalcanvas_native.so
+          readelf -h /tmp/liblocalcanvas_native.so | grep -E 'Class|Machine'
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: localcanvas-debug-apk
+          name: localcanvas-native-arm64-debug
           path: project/app/build/outputs/apk/debug/app-debug.apk
