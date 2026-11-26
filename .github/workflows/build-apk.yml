@@ -1,1 +1,52 @@
-name: Build LocalCanvas APKon:  workflow_dispatch:jobs:  build:    runs-on: ubuntu-latest    permissions:      contents: read    steps:      - uses: actions/checkout@v4      - uses: actions/setup-java@v4        with:          distribution: temurin          java-version: '17'      - name: Install Android build dependencies        run: |          sudo apt-get update          sudo apt-get install -y ninja-build glslc libvulkan-dev          SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}" -type f -name sdkmanager | head -n 1)          test -n "$SDKMANAGER"          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"      - name: Unpack latest project        run: unzip -q LocalCanvas-AndroidIDE-v3.zip -d project      - name: Fetch Vulkan headers        run: |          git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers          cmake -S spirv-headers -B spirv-build -DSPIRV_HEADERS_ENABLE_TESTS=OFF -DSPIRV_HEADERS_ENABLE_INSTALL=ON -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/spirv-install          cmake --build spirv-build --target install      - name: Fetch pinned stable-diffusion.cpp        working-directory: project        run: |          git clone --recursive https://github.com/leejet/stable-diffusion.cpp.git native/stable-diffusion.cpp          git -C native/stable-diffusion.cpp checkout 52491bd9f1fc15281791723bdff13baab7fd6819      - name: Build native ARM64 APK        working-directory: project
+name: Build LocalCanvas APK
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build glslc libvulkan-dev
+          SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}" -type f -name sdkmanager | head -n 1)
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Unpack latest project
+        run: unzip -q LocalCanvas-AndroidIDE-v3.zip -d project
+      - name: Fetch Vulkan headers
+        run: |
+          git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers
+          cmake -S spirv-headers -B spirv-build -DSPIRV_HEADERS_ENABLE_TESTS=OFF -DSPIRV_HEADERS_ENABLE_INSTALL=ON -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/spirv-install
+          cmake --build spirv-build --target install
+      - name: Fetch pinned stable-diffusion.cpp
+        working-directory: project
+        run: |
+          git clone --recursive https://github.com/leejet/stable-diffusion.cpp.git native/stable-diffusion.cpp
+          git -C native/stable-diffusion.cpp checkout 52491bd9f1fc15281791723bdff13baab7fd6819
+      - name: Build native ARM64 APK
+        working-directory: project
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          export CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/spirv-install"
+          gradle assembleDebug --no-daemon -PsdCppDir="$GITHUB_WORKSPACE/project/native/stable-diffusion.cpp"
+      - name: Verify native library
+        run: |
+          APK=project/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          unzip -l "$APK" | grep 'lib/arm64-v8a/liblocalcanvas_native.so'
+          unzip -p "$APK" 'lib/arm64-v8a/liblocalcanvas_native.so' > /tmp/liblocalcanvas_native.so
+          file /tmp/liblocalcanvas_native.so
+          readelf -h /tmp/liblocalcanvas_native.so | grep -E 'Class|Machine'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: localcanvas-native-arm64-debug
+          path: project/app/build/outputs/apk/debug/app-debug.apk
