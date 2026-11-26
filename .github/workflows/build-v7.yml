@@ -32,11 +32,11 @@ jobs:
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
       - name: Prepare project directory
         run: |
-          if [ -f settings.gradle ] && [ -d app/src/main/cpp ]; then
-            echo "PROJECT_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-          elif [ -f LocalCanvas-AndroidIDE-v7.zip ]; then
+          if [ -f LocalCanvas-AndroidIDE-v7.zip ]; then
             unzip -q LocalCanvas-AndroidIDE-v7.zip -d project
             echo "PROJECT_DIR=$GITHUB_WORKSPACE/project" >> "$GITHUB_ENV"
+          elif [ -f settings.gradle ] && [ -d app/src/main/cpp ]; then
+            echo "PROJECT_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
           else
             echo "No source project or V7 archive found" >&2
             exit 1
