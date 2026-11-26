@@ -16,8 +16,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@v4
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -41,6 +39,8 @@ jobs:
             echo "No source project or V7 archive found" >&2
             exit 1
           fi
+          test -f "$PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar"
+          test "$(sha256sum "$PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" | cut -d' ' -f1)" = "498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17"
       - name: Fetch pinned stable-diffusion.cpp and matching submodules
         run: |
           git clone --recursive https://github.com/leejet/stable-diffusion.cpp.git "$PROJECT_DIR/native/stable-diffusion.cpp"
