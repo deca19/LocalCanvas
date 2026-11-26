@@ -49,3 +49,4 @@ jobs:
         with:
           name: localcanvas-native-arm64-debug
           path: project/app/build/outputs/apk/debug/app-debug.apk
+  
