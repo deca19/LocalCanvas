@@ -1,4 +1,5 @@
-name: Build LocalCanvas V7 APK
+echo "PROJECT_DIR=$GITHUB_WORKSPACE/project" >> "$GITHUB_ENV"name: Build LocalCanvas V7 APK
+            sed -i "s#arguments \"-DSDCPP_DIR=#arguments \"-DSPIRV-Headers_DIR=\${project.findProperty(\'spirvHeadersDir\') ?: \"\"}\", \"-DSDCPP_DIR=#" "$PROJECT_DIR/app/build.gradle"
 
 on:
   workflow_dispatch:
