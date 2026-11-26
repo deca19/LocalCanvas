@@ -1,55 +1,5 @@
-name: Build LocalCanvas V7 APK
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout latest project source
-        uses: actions/checkout@v4
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-      - name: Install Android SDK and Vulkan tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build glslc libvulkan-dev unzip
-          SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME}}" -type f -name sdkmanager | head -n 1)
-          test -n "$SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
-      - name: Prepare project directory
-        run: |
-          if [ -f LocalCanvas-AndroidIDE-v7.zip ]; then
-            unzip -q LocalCanvas-AndroidIDE-v7.zip -d project
-            PROJECT_DIR="$GITHUB_WORKSPACE/project"
-            echo "PROJECT_DIR=$GITHUB_WORKSPACE/project" >> "$GITHUB_ENV"
-          elif [ -f settings.gradle ] && [ -d app/src/main/cpp ]; then
-            PROJECT_DIR="$GITHUB_WORKSPACE"
-            echo "PROJECT_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-          else
-            echo "No source project or V7 archive found" >&2
-            exit 1
-          fi
-          test -f "$PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar"
-          test "$(sha256sum "$PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" | cut -d' ' -f1)" = "498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17"
-          cat > "$PROJECT_DIR/app/build.gradle" <<'EOF'
-          plugins { id 'com.android.application' }
-          
-          android { namespace 'com.localcanvas.app'; compileSdk 35
-              ndkVersion '27.2.12479018'
               defaultConfig {
-                  applicationId 'com.localcanvas.app'; minSdk 29; targetSdk 35; versionCode 7; versionName '0.7.0-v7'
+                  applicationId 'com.localcanvas.app'; minSdk 29; targetSdk 35; versionCode 8; versionName '0.8.0-v8'
                   ndk { abiFilters 'arm64-v8a' }
                   externalNativeBuild { cmake { arguments "-DSDCPP_DIR=${project.findProperty('sdCppDir') ?: ''}", "-DCMAKE_PREFIX_PATH=${System.getenv('CMAKE_PREFIX_PATH') ?: ''}", "-DSPIRV-Headers_DIR=${project.findProperty('spirvHeadersDir') ?: ''}", "-DLOCALCANVAS_REQUIRE_SDCPP=${project.findProperty('requireSdCpp') ?: 'OFF'}" } }
               }
@@ -58,15 +8,18 @@ jobs:
           EOF
       - name: Fetch pinned stable-diffusion.cpp and matching submodules
         run: |
-          git clone --recursive https://github.com/leejet/stable-diffusion.cpp.git "$PROJECT_DIR/native/stable-diffusion.cpp"
+          git clone --filter=blob:none https://github.com/leejet/stable-diffusion.cpp.git "$PROJECT_DIR/native/stable-diffusion.cpp"
           git -C "$PROJECT_DIR/native/stable-diffusion.cpp" checkout 52491bd9f1fc15281791723bdff13baab7fd6819
           git -C "$PROJECT_DIR/native/stable-diffusion.cpp" submodule update --init --recursive
           test "$(git -C "$PROJECT_DIR/native/stable-diffusion.cpp" rev-parse HEAD)" = "52491bd9f1fc15281791723bdff13baab7fd6819"
       - name: Install SPIR-V headers package
         run: |
-          git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers
-          git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers.git vulkan-headers
+          git clone --filter=blob:none https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers
+          git -C spirv-headers checkout f6f78c717057ac7f5f3ea021f3f962aaf9d4da7e
+          git clone --filter=blob:none https://github.com/KhronosGroup/Vulkan-Headers.git vulkan-headers
+          git -C vulkan-headers checkout d277a0a3cda9c682708c93279f0c72cd6b0ae3f3
           cp -R vulkan-headers/include/vulkan "$PROJECT_DIR/native/stable-diffusion.cpp/ggml/src/"
+          cp -R vulkan-headers/include/vk_video "$PROJECT_DIR/native/stable-diffusion.cpp/ggml/src/"
           cmake -S spirv-headers -B spirv-build -DSPIRV_HEADERS_ENABLE_TESTS=OFF -DSPIRV_HEADERS_ENABLE_INSTALL=ON -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/spirv-install"
           cmake --build spirv-build --target install
           mkdir -p "$GITHUB_WORKSPACE/spirv-install/include" "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers"
@@ -79,7 +32,7 @@ jobs:
           chmod +x gradlew
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
           export CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/spirv-install"
-          ./gradlew --no-daemon --stacktrace assembleDebug -PsdCppDir="$PROJECT_DIR/native/stable-diffusion.cpp" -PspirvHeadersDir="$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers" -PrequireSdCpp=ON 2>&1 | tee "$GITHUB_WORKSPACE/v7-build.log"
+          ./gradlew --no-daemon --stacktrace assembleDebug -PsdCppDir="$PROJECT_DIR/native/stable-diffusion.cpp" -PspirvHeadersDir="$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers" -PrequireSdCpp=ON 2>&1 | tee "$GITHUB_WORKSPACE/v8-build.log"
       - name: Verify native engine, ABI and Vulkan-linked build
         run: |
           APK=$(find "$PROJECT_DIR/app/build/outputs/apk" -type f -name '*.apk' | head -n 1)
@@ -91,19 +44,26 @@ jobs:
           readelf -Ws /tmp/liblocalcanvas_native.so | grep 'NativeEngine_nativeGenerate'
           nm -D /tmp/liblocalcanvas_native.so | grep 'NativeEngine_nativeIsAvailable'
           readelf -d /tmp/liblocalcanvas_native.so | grep -E 'libvulkan\.so|NEEDED'
-      - name: Upload V7 APK
+      - name: Upload V8 APK
+        if: always() && hashFiles('**/app/build/outputs/apk/debug/*.apk') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: localcanvas-v7-native-arm64-debug
+          name: localcanvas-v8-native-arm64-debug
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - name: Upload V7 build log
+      - name: Upload V8 build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: localcanvas-v7-build-log
+          name: localcanvas-v8-build-log
           path: ${{ github.workspace }}/v7-build.log
           if-no-files-found: warn
 
 
+
+
+
+
+#
 
 #
