@@ -19,10 +19,17 @@ jobs:
           SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}" -type f -name sdkmanager | head -n 1)
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Inspect checked out sources
+        run: find app/src app -maxdepth 8 -type f -print
       - name: Unpack base project
         run: unzip -q LocalCanvas-AndroidIDE.zip -d project
       - name: Overlay native implementation
         run: |
+          test -f app/build.gradle
+          test -f app/src/main/java/com/localcanvas/app/NativeEngine.java
+          test -f app/src/main/java/com/localcanvas/app/MainActivity.java
+          test -f app/src/main/cpp/CMakeLists.txt
+          test -f app/src/main/cpp/localcanvas_jni.cpp
           cp app/build.gradle project/app/build.gradle
           cp app/src/main/java/com/localcanvas/app/NativeEngine.java project/app/src/main/java/com/localcanvas/app/NativeEngine.java
           cp app/src/main/java/com/localcanvas/app/MainActivity.java project/app/src/main/java/com/localcanvas/app/MainActivity.java
