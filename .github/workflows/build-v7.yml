@@ -44,18 +44,18 @@ jobs:
           test -f "$PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar"
           test "$(sha256sum "$PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" | cut -d' ' -f1)" = "498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17"
           cat > "$PROJECT_DIR/app/build.gradle" <<'EOF'
-plugins { id 'com.android.application' }
-
-android { namespace 'com.localcanvas.app'; compileSdk 35
-    ndkVersion '27.2.12479018'
-    defaultConfig {
-        applicationId 'com.localcanvas.app'; minSdk 29; targetSdk 35; versionCode 7; versionName '0.7.0-v7'
-        ndk { abiFilters 'arm64-v8a' }
-        externalNativeBuild { cmake { arguments "-DSDCPP_DIR=${project.findProperty('sdCppDir') ?: ''}", "-DCMAKE_PREFIX_PATH=${System.getenv('CMAKE_PREFIX_PATH') ?: ''}", "-DSPIRV-Headers_DIR=${project.findProperty('spirvHeadersDir') ?: ''}", "-DLOCALCANVAS_REQUIRE_SDCPP=${project.findProperty('requireSdCpp') ?: 'OFF'}" } }
-    }
-    externalNativeBuild { cmake { path file('src/main/cpp/CMakeLists.txt'); version '3.22.1' } }
-}
-EOF
+          plugins { id 'com.android.application' }
+          
+          android { namespace 'com.localcanvas.app'; compileSdk 35
+              ndkVersion '27.2.12479018'
+              defaultConfig {
+                  applicationId 'com.localcanvas.app'; minSdk 29; targetSdk 35; versionCode 7; versionName '0.7.0-v7'
+                  ndk { abiFilters 'arm64-v8a' }
+                  externalNativeBuild { cmake { arguments "-DSDCPP_DIR=${project.findProperty('sdCppDir') ?: ''}", "-DCMAKE_PREFIX_PATH=${System.getenv('CMAKE_PREFIX_PATH') ?: ''}", "-DSPIRV-Headers_DIR=${project.findProperty('spirvHeadersDir') ?: ''}", "-DLOCALCANVAS_REQUIRE_SDCPP=${project.findProperty('requireSdCpp') ?: 'OFF'}" } }
+              }
+              externalNativeBuild { cmake { path file('src/main/cpp/CMakeLists.txt'); version '3.22.1' } }
+          }
+          EOF
       - name: Fetch pinned stable-diffusion.cpp and matching submodules
         run: |
           git clone --recursive https://github.com/leejet/stable-diffusion.cpp.git "$PROJECT_DIR/native/stable-diffusion.cpp"
