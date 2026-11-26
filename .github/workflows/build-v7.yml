@@ -1,3 +1,53 @@
+name: Build LocalCanvas V8 APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout latest project source
+        uses: actions/checkout@v5
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK and Vulkan tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build glslc libvulkan-dev unzip
+          SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME}}" -type f -name sdkmanager | head -n 1)
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Prepare project directory
+        run: |
+          if [ -f LocalCanvas-AndroidIDE-v7.zip ]; then
+            unzip -q LocalCanvas-AndroidIDE-v7.zip -d project
+            PROJECT_DIR="$GITHUB_WORKSPACE/project"
+            echo "PROJECT_DIR=$GITHUB_WORKSPACE/project" >> "$GITHUB_ENV"
+          elif [ -f settings.gradle ] && [ -d app/src/main/cpp ]; then
+            PROJECT_DIR="$GITHUB_WORKSPACE"
+            echo "PROJECT_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          else
+            echo "No source project or V7 archive found" >&2
+            exit 1
+          fi
+          test -f "$PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar"
+          test "$(sha256sum "$PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" | cut -d' ' -f1)" = "498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17"
+          cat > "$PROJECT_DIR/app/build.gradle" <<'EOF'
+          plugins { id 'com.android.application' }
+          
+          android { namespace 'com.localcanvas.app'; compileSdk 35
+              ndkVersion '27.2.12479018'
               defaultConfig {
                   applicationId 'com.localcanvas.app'; minSdk 29; targetSdk 35; versionCode 8; versionName '0.8.0-v8'
                   ndk { abiFilters 'arm64-v8a' }
@@ -20,6 +70,7 @@
           git -C vulkan-headers checkout d277a0a3cda9c682708c93279f0c72cd6b0ae3f3
           cp -R vulkan-headers/include/vulkan "$PROJECT_DIR/native/stable-diffusion.cpp/ggml/src/"
           cp -R vulkan-headers/include/vk_video "$PROJECT_DIR/native/stable-diffusion.cpp/ggml/src/"
+          git -C spirv-headers checkout f6f78c717057ac7f5f3ea021f3f962aaf9d4da7e
           cmake -S spirv-headers -B spirv-build -DSPIRV_HEADERS_ENABLE_TESTS=OFF -DSPIRV_HEADERS_ENABLE_INSTALL=ON -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/spirv-install"
           cmake --build spirv-build --target install
           mkdir -p "$GITHUB_WORKSPACE/spirv-install/include" "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers"
@@ -60,10 +111,5 @@
           if-no-files-found: warn
 
 
-
-
-
-
 #
-
 #
