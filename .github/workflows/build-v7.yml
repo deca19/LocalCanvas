@@ -65,6 +65,8 @@ jobs:
       - name: Install SPIR-V headers package
         run: |
           git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers
+          git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers.git vulkan-headers
+          cp -R vulkan-headers/include/vulkan "$PROJECT_DIR/native/stable-diffusion.cpp/ggml/src/"
           cmake -S spirv-headers -B spirv-build -DSPIRV_HEADERS_ENABLE_TESTS=OFF -DSPIRV_HEADERS_ENABLE_INSTALL=ON -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/spirv-install"
           cmake --build spirv-build --target install
           mkdir -p "$GITHUB_WORKSPACE/spirv-install/include" "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers"
@@ -101,6 +103,7 @@ jobs:
           name: localcanvas-v7-build-log
           path: ${{ github.workspace }}/v7-build.log
           if-no-files-found: warn
+
 
 
 #
