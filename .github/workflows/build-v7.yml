@@ -75,6 +75,7 @@ jobs:
           cmake --build spirv-build --target install
           mkdir -p "$GITHUB_WORKSPACE/spirv-install/include" "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers"
           cp -R spirv-headers/include/spirv "$GITHUB_WORKSPACE/spirv-install/include/"
+          cp -R spirv-headers/include/spirv "$PROJECT_DIR/native/stable-diffusion.cpp/ggml/src/"
           printf '%s\n' 'add_library(SPIRV-Headers INTERFACE)' 'add_library(SPIRV-Headers::SPIRV-Headers ALIAS SPIRV-Headers)' 'set_target_properties(SPIRV-Headers PROPERTIES' '  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/../../../include")' > "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
       - name: Build with Gradle Wrapper and required native engine
         working-directory: ${{ env.PROJECT_DIR }}
@@ -111,5 +112,6 @@ jobs:
           if-no-files-found: warn
 
 
+#
 #
 #
