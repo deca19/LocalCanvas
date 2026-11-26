@@ -1,5 +1,4 @@
-echo "PROJECT_DIR=$GITHUB_WORKSPACE/project" >> "$GITHUB_ENV"name: Build LocalCanvas V7 APK
-            sed -i "s#arguments \"-DSDCPP_DIR=#arguments \"-DSPIRV-Headers_DIR=\${project.findProperty(\'spirvHeadersDir\') ?: \"\"}\", \"-DSDCPP_DIR=#" "$PROJECT_DIR/app/build.gradle"
+name: Build LocalCanvas V7 APK
 
 on:
   workflow_dispatch:
@@ -25,7 +24,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build glslc libvulkan-dev unzip
-          SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}" -type f -name sdkmanager | head -n 1)
+          SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME}}" -type f -name sdkmanager | head -n 1)
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
@@ -65,7 +64,7 @@ jobs:
           chmod +x gradlew
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
           export CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/spirv-install"
-          ./gradlew --no-daemon --stacktrace assembleDebug -PsdCppDir="$PROJECT_DIR/native/stable-diffusion.cpp" -PrequireSdCpp=ON 2>&1 | tee "$GITHUB_WORKSPACE/v7-build.log"
+          ./gradlew --no-daemon --stacktrace assembleDebug -PsdCppDir="$PROJECT_DIR/native/stable-diffusion.cpp" -PspirvHeadersDir="$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers" -PrequireSdCpp=ON 2>&1 | tee "$GITHUB_WORKSPACE/v7-build.log"
       - name: Verify native engine, ABI and Vulkan-linked build
         run: |
           APK=$(find "$PROJECT_DIR/app/build/outputs/apk" -type f -name '*.apk' | head -n 1)
