@@ -49,6 +49,7 @@ jobs:
         run: |
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
           export CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/spirv-install"
+          perl -0pi -e 's/final Runnable progressPoll=/final Runnable[] progressPoll=new Runnable[1]; {progressPoll[0]=/; s/postDelayed\(progressPoll,/postDelayed(progressPoll[0],/; s/post\(progressPoll\)/post(progressPoll[0])/; s/removeCallbacks\(progressPoll\)/removeCallbacks(progressPoll[0])/' app/src/main/java/com/localcanvas/app/MainActivity.java
           "$RUNNER_TEMP/gradle-8.9/bin/gradle" --no-daemon --stacktrace assembleDebug
       - name: Verify native library
         working-directory: project
