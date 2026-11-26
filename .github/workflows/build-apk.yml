@@ -30,9 +30,8 @@ jobs:
       - name: Fetch pinned stable-diffusion.cpp
         working-directory: project
         run: |
-          git clone --depth 1 --recursive https://github.com/leejet/stable-diffusion.cpp.git native/stable-diffusion.cpp
-          git -C native/stable-diffusion.cpp fetch --depth 1 origin 52491bd9f1fc15281791723bdff13baab7fd6819
-          git -C native/stable-diffusion.cpp checkout 52491bd9f1fc15281723bdff13baab7fd6819
+          git clone --recursive https://github.com/leejet/stable-diffusion.cpp.git native/stable-diffusion.cpp
+          git -C native/stable-diffusion.cpp checkout 52491bd9f1fc15281791723bdff13baab7fd6819
       - name: Build native ARM64 APK
         working-directory: project
         run: |
