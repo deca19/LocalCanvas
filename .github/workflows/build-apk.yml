@@ -12,29 +12,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Install build dependencies
+      - name: Install Android build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build glslc libvulkan-dev
           SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}" -type f -name sdkmanager | head -n 1)
+          test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools" "ndk;27.2.12479018" "cmake;3.22.1"
-      - name: Inspect checked out sources
-        run: find app/src app -maxdepth 8 -type f -print
-      - name: Unpack base project
-        run: unzip -q LocalCanvas-AndroidIDE.zip -d project
-      - name: Overlay native implementation
-        run: |
-          test -f app/build.gradle
-          test -f app/src/main/java/com/localcanvas/app/NativeEngine.java
-          test -f app/src/main/java/com/localcanvas/app/MainActivity.java
-          test -f app/src/main/cpp/CMakeLists.txt
-          test -f app/src/main/cpp/localcanvas_jni.cpp
-          cp app/build.gradle project/app/build.gradle
-          cp app/src/main/java/com/localcanvas/app/NativeEngine.java project/app/src/main/java/com/localcanvas/app/NativeEngine.java
-          cp app/src/main/java/com/localcanvas/app/MainActivity.java project/app/src/main/java/com/localcanvas/app/MainActivity.java
-          mkdir -p project/app/src/main/cpp
-          cp app/src/main/cpp/CMakeLists.txt app/src/main/cpp/localcanvas_jni.cpp project/app/src/main/cpp/
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Unpack latest project
+        run: unzip -q LocalCanvas-AndroidIDE-v2.zip -d project
       - name: Fetch pinned stable-diffusion.cpp
         working-directory: project
         run: |
@@ -49,6 +36,7 @@ jobs:
       - name: Verify native library
         run: |
           APK=project/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
           unzip -l "$APK" | grep 'lib/arm64-v8a/liblocalcanvas_native.so'
           unzip -p "$APK" 'lib/arm64-v8a/liblocalcanvas_native.so' > /tmp/liblocalcanvas_native.so
           file /tmp/liblocalcanvas_native.so
@@ -56,4 +44,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: localcanvas-native-arm64-debug
-          path: project/app/build/outputs/apk/debug/app-debug.apk  
+          path: project/app/build/outputs/apk/debug/app-debug.apk
