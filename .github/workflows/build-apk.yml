@@ -15,9 +15,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Verify and unpack V15.4 source archive
         run: |
-          echo '4de598bbaa8e4352d348b54654bfc58fdbe8f9db277d1c62a972582e6003501b  LocalCanvas-v15.4-source.zip' | sha256sum -c -
+          echo 'ba0070c814169d2981da01bfdcbc37d8e9a28ee31d2898ddafa2f05af192ebf7  LocalCanvas-v15.4-source.zip' | sha256sum -c -
           rm -rf source
           unzip -q LocalCanvas-v15.4-source.zip -d source
+          rm -rf app gradle .github build.gradle settings.gradle gradle.properties gradlew gradlew.bat
           cp -a source/. .
           rm -rf source
           test -f settings.gradle
@@ -75,12 +76,12 @@ jobs:
           test -n "$APK"
           unzip -t "$APK"
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionCode='154'"
-          unzip -l "$APK" | grep -E 'lib/arm64-v8a/liblocalcanvas_native\.so'
+          unzip -l "$APK" | grep -E 'lib/arm64-v8a/liblocalcanvas_native\\.so'
           unzip -p "$APK" lib/arm64-v8a/liblocalcanvas_native.so >/tmp/liblocalcanvas_native.so
           file /tmp/liblocalcanvas_native.so | grep -E 'ELF 64-bit.*ARM aarch64'
           readelf -Ws /tmp/liblocalcanvas_native.so | grep NativeEngine_nativeGenerateEx
           readelf -Ws /tmp/liblocalcanvas_native.so | grep NativeEngine_nativeUpscale
-          readelf -d /tmp/liblocalcanvas_native.so | grep -E 'NEEDED.*libvulkan\.so' || readelf -Ws /tmp/liblocalcanvas_native.so | grep -E 'ggml_vk|vkGetInstanceProcAddr'
+          readelf -d /tmp/liblocalcanvas_native.so | grep -E 'NEEDED.*libvulkan\\.so' || readelf -Ws /tmp/liblocalcanvas_native.so | grep -E 'ggml_vk|vkGetInstanceProcAddr'
           sha256sum "$APK" | tee apk-sha256.txt
       - name: Upload logs and reports
         if: always()
