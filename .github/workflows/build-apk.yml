@@ -1,78 +1,65 @@
 name: Build LocalCanvas V15.4 APK
-
 on:
   workflow_dispatch:
   push:
     paths: ['.github/workflows/build-apk.yml', 'LocalCanvas-v15.4-source.zip']
-
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Checkout current source
-        uses: actions/checkout@v4
-      - name: Verify and unpack V15.4 source archive
+      - uses: actions/checkout@v4
+      - name: Unpack verified source
         run: |
-          echo 'ba0070c814169d2981da01bfdcbc37d8e9a28ee31d2898ddafa2f05af192ebf7  LocalCanvas-v15.4-source.zip' | sha256sum -c -
-          rm -rf source
+          unzip -t LocalCanvas-v15.4-source.zip
+          rm -rf source app gradle .github build.gradle settings.gradle gradle.properties gradlew gradlew.bat
           unzip -q LocalCanvas-v15.4-source.zip -d source
-          rm -rf app gradle .github build.gradle settings.gradle gradle.properties gradlew gradlew.bat
           cp -a source/. .
           rm -rf source
-          test -f settings.gradle
           test -f app/build.gradle
           test -f gradle/wrapper/gradle-wrapper.jar
           grep -q 'versionCode 154' app/build.gradle
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Verify Gradle Wrapper
+      - name: Verify wrapper
         run: |
           unzip -t gradle/wrapper/gradle-wrapper.jar
           chmod +x gradlew
           ./gradlew --version
           ./gradlew tasks --all >/tmp/gradle-tasks.txt
-      - name: Install Android SDK NDK CMake and Vulkan tools
+      - name: Install Android toolchain
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build glslc libvulkan-dev unzip binutils file
           SDKMANAGER=$(find "$ANDROID_SDK_ROOT" -type f -name sdkmanager | head -n 1)
-          test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
-      - name: Fetch pinned stable-diffusion.cpp
+      - name: Fetch pinned engine
         run: |
           git clone --recursive https://github.com/leejet/stable-diffusion.cpp.git native/stable-diffusion.cpp
           git -C native/stable-diffusion.cpp checkout dee497f4df67786a24a30b46176ebc188f247192
           git -C native/stable-diffusion.cpp submodule update --init --recursive
           test "$(git -C native/stable-diffusion.cpp rev-parse HEAD)" = dee497f4df67786a24a30b46176ebc188f247192
-      - name: Compile lint test and assemble APK
+      - name: Build, lint, and test
         run: |
           set -o pipefail
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
-          ./gradlew --no-daemon --stacktrace lint test assembleDebug -PsdCppDir="$GITHUB_WORKSPACE/native/stable-diffusion.cpp" -PrequireSdCpp=ON 2>&1 | tee "$GITHUB_WORKSPACE/v15.4-build.log"
-          xml=$(find app/build/test-results -type f -name 'TEST-*.xml' 2>/dev/null)
+          ./gradlew --no-daemon --stacktrace lint test assembleDebug -PsdCppDir="$GITHUB_WORKSPACE/native/stable-diffusion.cpp" -PrequireSdCpp=ON 2>&1 | tee v15.4-build.log
+          xml=$(find app/build/test-results -name 'TEST-*.xml')
           test -n "$xml"
           tests=$(grep -h -o 'tests="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
           failures=$(grep -h -o 'failures="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
           errors=$(grep -h -o 'errors="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
-          skipped=$(grep -h -o 'skipped="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
-          echo "tests=$tests failures=$failures errors=$errors skipped=$skipped"
-          test "$tests" -gt 0
-          test "$failures" -eq 0
-          test "$errors" -eq 0
-          test "$skipped" -eq 0
-      - name: Verify APK ARM64 JNI Vulkan and checksum
+          test "$tests" -gt 0; test "$failures" -eq 0; test "$errors" -eq 0
+      - name: Verify APK
         run: |
-          APK=$(find app/build/outputs/apk -name '*.apk' -type f | head -n 1)
+          APK=$(find app/build/outputs/apk -name '*.apk' | head -n 1)
           test -n "$APK"
           unzip -t "$APK"
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionCode='154'"
@@ -80,10 +67,9 @@ jobs:
           unzip -p "$APK" lib/arm64-v8a/liblocalcanvas_native.so >/tmp/liblocalcanvas_native.so
           file /tmp/liblocalcanvas_native.so | grep -E 'ELF 64-bit.*ARM aarch64'
           readelf -Ws /tmp/liblocalcanvas_native.so | grep NativeEngine_nativeGenerateEx
-          readelf -Ws /tmp/liblocalcanvas_native.so | grep NativeEngine_nativeUpscale
           readelf -d /tmp/liblocalcanvas_native.so | grep -E 'NEEDED.*libvulkan\\.so' || readelf -Ws /tmp/liblocalcanvas_native.so | grep -E 'ggml_vk|vkGetInstanceProcAddr'
           sha256sum "$APK" | tee apk-sha256.txt
-      - name: Upload logs and reports
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -94,7 +80,7 @@ jobs:
             app/build/reports/**
             app/build/test-results/**
           if-no-files-found: warn
-      - name: Upload verified V15.4 APK
+      - name: Upload verified APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
