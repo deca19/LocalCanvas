@@ -350,7 +350,7 @@ public final class V14Activity extends Activity {
         ui.field(form, "품질 프리셋", qualRow);
 
         LinearLayout ratioRow = ui.row();
-        String[][] ratios = {{"1:1", "512", "512"}, {"3:4", "512", "680"}, {"16:9", "768", "432"}, {"SDXL", "1024", "1024"}};
+        String[][] ratios = {{"1:1", "512", "512"}, {"3:4", "576", "768"}, {"16:9", "768", "432"}, {"SDXL", "1024", "1024"}};
         for (String[] r : ratios) {
             Button rb = ui.button(r[0]);
             rb.setOnClickListener(v -> { widthInput.setText(r[1]); heightInput.setText(r[2]); });
@@ -1107,7 +1107,17 @@ public final class V14Activity extends Activity {
             Toast.makeText(this, "프롬프트를 입력하세요.", Toast.LENGTH_SHORT).show();
             return;
         }
-        String triggers = loras.buildTriggerString();
+        final List<LoraManager.LoraEntry> active = loras.activeLoras();
+        final String[] loraPaths = new String[active.size()];
+        final float[] loraWeights = new float[active.size()];
+        final java.util.List<String> triggerParts = new java.util.ArrayList<>();
+        for (int i = 0; i < active.size(); i++) {
+            LoraManager.LoraEntry e = active.get(i);
+            loraPaths[i] = e.file.getAbsolutePath();
+            loraWeights[i] = e.weight;
+            if (e.triggerWords != null && !e.triggerWords.trim().isEmpty()) triggerParts.add(e.triggerWords.trim());
+        }
+        String triggers = String.join(", ", triggerParts);
         String finalPrompt = triggers.isEmpty() ? rawPrompt : rawPrompt + ", " + triggers;
         prompts.pushHistory(rawPrompt);
 
@@ -1119,6 +1129,11 @@ public final class V14Activity extends Activity {
             Toast.makeText(this, "해상도(8의 배수)와 Steps(1~200)를 확인하세요.", Toast.LENGTH_LONG).show();
             return;
         }
+        if (!Float.isFinite(cfg) || cfg < 1 || cfg > 30 || batch < 1 || batch > 8 || clipSkip < 1 || clipSkip > 12) {
+            Toast.makeText(this, "CFG 1~30, Batch 1~8, CLIP Skip 1~12 범위를 확인하세요.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final String jobSampler = selectedSampler, jobScheduler = selectedScheduler;
         if (seed >= 0) prefs.edit().putLong("last_seed", seed).apply();
 
         PerformanceMonitor.Snapshot perf = PerformanceMonitor.capture(this);
@@ -1143,9 +1158,9 @@ public final class V14Activity extends Activity {
 
                 GenerationQueue.Job job = new GenerationQueue.Job(
                         jobUid, modelFile, vaeFile,
-                        null, null, null, null, finalPrompt, negPrompt,
+                        null, null, loraPaths, loraWeights, finalPrompt, negPrompt,
                         w, h, s, cfg, seed, batch, clipSkip, perf.recommendedThreads,
-                        selectedSampler, selectedScheduler,
+                        jobSampler, jobScheduler,
                         useVulkan, cpuFallback, true, true, vaeTiling,
                         hires, 1.5f, 10, 0.5f, "latent",
                         initFile, maskFile, strength, ctrlFile, ctrlType, ctrlStrength,
