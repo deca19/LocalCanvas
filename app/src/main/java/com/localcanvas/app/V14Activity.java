@@ -576,10 +576,14 @@ public final class V14Activity extends Activity {
         Button swResizeBtn = ui.button("2x 소프트웨어 확대");
         swResizeBtn.setOnClickListener(v -> {
             if (editSourceBitmap == null) return;
-            Bitmap up = ImageEditProcessor.resizeBicubic(editSourceBitmap, editSourceBitmap.getWidth() * 2, editSourceBitmap.getHeight() * 2);
+            final Bitmap source = editSourceBitmap;
+            if ((long) source.getWidth() * source.getHeight() > 4000000L) { Toast.makeText(this, "이미지가 너무 큽니다.", Toast.LENGTH_SHORT).show(); return; }
+            TaskRuntime.fileExecutor().submit(() -> {
+            Bitmap up = ImageEditProcessor.resizeBicubic(source, source.getWidth() * 2, source.getHeight() * 2);
             File out = new File(galleryRepo.directory(), "Bicubic2x_" + System.currentTimeMillis() + ".png");
             ImageEditProcessor.savePngWithMetadata(up, out, "LocalCanvas", "resize=bicubic_2x");
-            Toast.makeText(this, "소프트웨어 2x 확대 저장됨: " + out.getName(), Toast.LENGTH_SHORT).show();
+            runOnUiThread(() -> Toast.makeText(this, "소프트웨어 2x 확대 저장됨: " + out.getName(), Toast.LENGTH_SHORT).show());
+            });
         });
         upRow.addView(aiUpscaleBtn, ui.lp(0, ui.dp(44), 1));
         upRow.addView(swResizeBtn, ui.lp(0, ui.dp(44), 1));
@@ -602,16 +606,20 @@ public final class V14Activity extends Activity {
         if ("hf".equals(storeFilter) || "civitai".equals(storeFilter)) {
             EditText searchInput = ui.input("모델 검색어 (예: anime, sdxl, lora)", "");
             Button searchBtn = ui.accentButton("온라인 검색");
-            searchBtn.setOnClickListener(v -> TaskRuntime.networkExecutor().submit(() -> {
+            searchBtn.setOnClickListener(v -> {
+                final String query = searchInput.getText().toString();
+                final String source = storeFilter;
+                searchBtn.setEnabled(false);
+                TaskRuntime.networkExecutor().submit(() -> {
                 try {
-                    List<ModelStoreRepository.StoreItem> res = "hf".equals(storeFilter)
-                            ? storeRepo.searchHuggingFace(searchInput.getText().toString(), "")
-                            : storeRepo.searchCivitaiSfw(searchInput.getText().toString(), "");
-                    runOnUiThread(() -> { lastStoreResults = res; showModelStore(); });
+                    List<ModelStoreRepository.StoreItem> res = "hf".equals(source)
+                            ? storeRepo.searchHuggingFace(query, "")
+                            : storeRepo.searchCivitaiSfw(query, "");
+                    runOnUiThread(() -> { searchBtn.setEnabled(true); if (source.equals(storeFilter)) { lastStoreResults = res; showModelStore(); } });
                 } catch (Exception e) {
-                    runOnUiThread(() -> Toast.makeText(this, "검색 실패: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                    runOnUiThread(() -> { searchBtn.setEnabled(true); Toast.makeText(this, "검색 실패: " + e.getMessage(), Toast.LENGTH_LONG).show(); });
                 }
-            }));
+            }); });
             LinearLayout sBox = ui.col();
             sBox.addView(searchInput);
             sBox.addView(searchBtn);
@@ -621,9 +629,10 @@ public final class V14Activity extends Activity {
                 LinearLayout card = ui.col();
                 card.addView(ui.text(item.name + "\n" + item.source + " · " + item.architecture + " · " + item.kind
                         + "\n예상 RAM: " + (item.estimatedRamBytes / 1024 / 1024) + " MB · " + item.license, 13, ui.text));
-                if (item.downloadUrl != null && item.downloadUrl.startsWith("https://")) {
+                ModelManager.AssetType asset = "Checkpoint".equalsIgnoreCase(item.kind) ? ModelManager.AssetType.CHECKPOINT : "VAE".equalsIgnoreCase(item.kind) ? ModelManager.AssetType.VAE : "ControlNet".equalsIgnoreCase(item.kind) ? ModelManager.AssetType.CONTROLNET : null;
+                if (asset != null && item.downloadUrl != null && item.downloadUrl.startsWith("https://")) {
                     Button dl = ui.button("다운로드 (ON)");
-                    dl.setOnClickListener(v -> showDownloadDialog(item.id, ModelManager.AssetType.CHECKPOINT, item.name, item.downloadUrl, null));
+                    dl.setOnClickListener(v -> showDownloadDialog(item.id, asset, item.name, item.downloadUrl, null));
                     card.addView(dl);
                 } else {
                     card.addView(ui.text("자동 설치 불가 · 호환 파일을 직접 가져오세요", 12, ui.muted));
@@ -675,6 +684,7 @@ public final class V14Activity extends Activity {
             Button select = ui.button(m.id.equals(selectedModel) || m.id.equals(selectedVae) ? "✓ 선택됨" : "선택");
             select.setOnClickListener(v -> {
                 if (!m.isInstalled()) { Toast.makeText(this, "먼저 ON으로 설치하세요.", Toast.LENGTH_SHORT).show(); return; }
+                if (m.type != ModelManager.AssetType.CHECKPOINT && m.type != ModelManager.AssetType.VAE) { Toast.makeText(this, "편집 화면에서 사용하는 보조 모델입니다.", Toast.LENGTH_SHORT).show(); return; }
                 if (m.type == ModelManager.AssetType.VAE) { selectedVae = m.id; prefs.edit().putString("vae", selectedVae).apply(); }
                 else { selectedModel = m.id; prefs.edit().putString("model", selectedModel).apply(); }
                 showModelStore();
