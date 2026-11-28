@@ -650,6 +650,17 @@ public final class V14Activity extends Activity {
                 row.addView(toggle, ui.lp(0, ui.dp(42), 1));
                 row.addView(del, ui.lp(0, ui.dp(42), 1));
                 box.addView(row);
+                SeekBar weightBar = new SeekBar(this);
+                weightBar.setMax(400);
+                weightBar.setProgress(Math.round((e.weight + 2f) * 100));
+                TextView weightLabel = ui.text("LoRA 강도: " + e.weight, 12, ui.muted);
+                weightBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                    public void onProgressChanged(SeekBar bar, int p, boolean user) { weightLabel.setText(String.format(Locale.US, "LoRA 강도: %.2f", p / 100f - 2f)); }
+                    public void onStartTrackingTouch(SeekBar bar) {}
+                    public void onStopTrackingTouch(SeekBar bar) { loras.updateState(e.id, e.enabled, bar.getProgress() / 100f - 2f, e.favorite); }
+                });
+                box.addView(weightLabel);
+                box.addView(weightBar);
                 ui.card(content, box);
             }
             return;
