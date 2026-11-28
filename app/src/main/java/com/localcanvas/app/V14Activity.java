@@ -84,6 +84,7 @@ public final class V14Activity extends Activity {
     // Edit screen state
     private Bitmap editSourceBitmap;
     private Bitmap editCompareBitmap;
+    private Bitmap editControlPreviewBitmap;
     private boolean showCompareAfter = true;
     private String editControlType = "none";
     private float editDenoise = 0.65f;
@@ -531,19 +532,20 @@ public final class V14Activity extends Activity {
 
         LinearLayout cnRow = ui.row();
         Button cnTypeBtn = ui.button("ControlNet: " + editControlType);
-        String[] cnTypes = {"none", "canny", "depth", "openpose", "lineart", "scribble"};
+        String[] cnTypes = {"none", "canny", "depth", "openpose", "lineart", "softedge", "scribble", "tile"};
         cnTypeBtn.setOnClickListener(v -> new AlertDialog.Builder(this).setTitle("ControlNet 모드")
                 .setItems(cnTypes, (d, w) -> { editControlType = cnTypes[w]; cnTypeBtn.setText("ControlNet: " + editControlType); }).show());
-        Button cannyPreviewBtn = ui.button("Canny 미리보기");
+        Button cannyPreviewBtn = ui.button("전처리 미리보기");
         cannyPreviewBtn.setOnClickListener(v -> {
-            if (editSourceBitmap == null || !engineReady()) {
-                Toast.makeText(this, "이미지와 네이티브 엔진이 필요합니다.", Toast.LENGTH_SHORT).show();
+            if (editSourceBitmap == null) {
+                Toast.makeText(this, "먼저 이미지를 선택하세요.", Toast.LENGTH_SHORT).show();
                 return;
             }
             TaskRuntime.fileExecutor().submit(() -> {
                 try {
-                    Bitmap edges = ImageEditProcessor.canny(editSourceBitmap, 0.8f, 0.1f, 0.5f, 1.0f);
-                    runOnUiThread(() -> { editCompareBitmap = edges; maskView.setBackgroundBitmap(edges); });
+                    Bitmap preview = ImageEditProcessor.controlPreview(editSourceBitmap, editControlType);
+                    editControlPreviewBitmap = preview;
+                    runOnUiThread(() -> { editCompareBitmap = preview; maskView.setBackgroundBitmap(preview); });
                 } catch (Exception e) {
                     runOnUiThread(() -> Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show());
                 }
@@ -569,7 +571,12 @@ public final class V14Activity extends Activity {
         runInpaintBtn.setOnClickListener(v -> {
             if (editSourceBitmap == null) { Toast.makeText(this, "먼저 이미지를 선택하세요.", Toast.LENGTH_SHORT).show(); return; }
             Bitmap mask = maskView.exportMaskBitmap(editSourceBitmap.getWidth(), editSourceBitmap.getHeight());
-            enqueueBitmapEdit(editSourceBitmap, mask, editControlType.equals("none") ? null : editSourceBitmap, editControlType, editDenoise);
+            Bitmap control = "none".equals(editControlType) ? null : editControlPreviewBitmap;
+            if (!"none".equals(editControlType) && control == null) {
+                Toast.makeText(this, "선택한 ControlNet의 전처리 미리보기를 먼저 실행하세요.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            enqueueBitmapEdit(editSourceBitmap, mask, control, editControlType, editDenoise);
         });
         box.addView(runInpaintBtn, ui.lp(-1, ui.dp(48)));
 

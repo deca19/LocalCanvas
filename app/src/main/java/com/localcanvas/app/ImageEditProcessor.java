@@ -127,6 +127,74 @@ public final class ImageEditProcessor {
         return result;
     }
 
+    /**
+     * Builds the control image that this app can prepare without a secondary
+     * vision model. OpenPose intentionally remains unsupported here: a pose
+     * detector is required and the source bitmap must not be mislabeled as a
+     * pose map.
+     */
+    public static Bitmap controlPreview(Bitmap src, String type) {
+        String mode = type == null ? "none" : type.toLowerCase(java.util.Locale.US);
+        if ("none".equals(mode) || "tile".equals(mode)) return src;
+        if ("canny".equals(mode) || "lineart".equals(mode)) {
+            return canny(src, 0.8f, 0.1f, 0.5f, 1.0f);
+        }
+        if ("softedge".equals(mode) || "scribble".equals(mode)) {
+            return sobelEdge(src);
+        }
+        if ("depth".equals(mode)) return depthLumaProxy(src);
+        if ("openpose".equals(mode)) {
+            throw new UnsupportedOperationException("OpenPose 전처리 모델이 설치되지 않았습니다");
+        }
+        throw new IllegalArgumentException("지원하지 않는 ControlNet 전처리: " + type);
+    }
+
+    /** Soft-edge style Sobel magnitude map for compatible scribble/softedge models. */
+    public static Bitmap sobelEdge(Bitmap src) {
+        if (src == null || src.getWidth() < 3 || src.getHeight() < 3) {
+            throw new IllegalArgumentException("전처리 입력 이미지가 너무 작습니다");
+        }
+        int w = src.getWidth(), h = src.getHeight();
+        int[] pixels = new int[w * h];
+        src.getPixels(pixels, 0, w, 0, 0, w, h);
+        float[] gray = new float[w * h];
+        for (int i = 0; i < pixels.length; i++) {
+            int p = pixels[i];
+            gray[i] = (0.299f * Color.red(p) + 0.587f * Color.green(p) + 0.114f * Color.blue(p)) / 255f;
+        }
+        int[] out = new int[w * h];
+        for (int y = 1; y < h - 1; y++) {
+            for (int x = 1; x < w - 1; x++) {
+                int i = y * w + x;
+                float gx = -gray[i - w - 1] - 2f * gray[i - 1] - gray[i + w - 1]
+                        + gray[i - w + 1] + 2f * gray[i + 1] + gray[i + w + 1];
+                float gy = -gray[i - w - 1] - 2f * gray[i - w] - gray[i - w + 1]
+                        + gray[i + w - 1] + 2f * gray[i + w] + gray[i + w + 1];
+                int value = Math.max(0, Math.min(255, Math.round((float) Math.sqrt(gx * gx + gy * gy) * 255f)));
+                out[i] = Color.rgb(value, value, value);
+            }
+        }
+        Bitmap result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        result.setPixels(out, 0, w, 0, 0, w, h);
+        return result;
+    }
+
+    /** Luminance depth proxy; true metric depth requires a dedicated depth model. */
+    public static Bitmap depthLumaProxy(Bitmap src) {
+        if (src == null) throw new IllegalArgumentException("전처리 입력 이미지가 없습니다");
+        int w = src.getWidth(), h = src.getHeight();
+        int[] pixels = new int[w * h];
+        src.getPixels(pixels, 0, w, 0, 0, w, h);
+        for (int i = 0; i < pixels.length; i++) {
+            int p = pixels[i];
+            int value = 255 - Math.round(0.299f * Color.red(p) + 0.587f * Color.green(p) + 0.114f * Color.blue(p));
+            pixels[i] = Color.rgb(value, value, value);
+        }
+        Bitmap result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        result.setPixels(pixels, 0, w, 0, 0, w, h);
+        return result;
+    }
+
     private static int align8(int v) {
         return Math.max(64, ((v + 7) / 8) * 8);
     }
