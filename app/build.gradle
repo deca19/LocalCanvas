@@ -11,8 +11,8 @@ android {
         applicationId 'com.localcanvas.app'
         minSdk 29
         targetSdk 35
-        versionCode 160
-        versionName '1.6.0'
+        versionCode 161
+        versionName '1.6.1'
         ndk {
             abiFilters 'arm64-v8a'
         }

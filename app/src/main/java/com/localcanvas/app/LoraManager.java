@@ -9,6 +9,15 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.FileInputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.MessageDigest;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -112,6 +121,73 @@ public final class LoraManager {
         AtomicModelFile.replace(part, dest);
         saveMeta(fileName, name, category, arch, triggers, false, 0.8f, false);
         return dest;
+    }
+
+    /** Downloads a verified HTTPS LoRA into the LoRA registry without routing it through checkpoints. */
+    public File download(String id, String url, String expectedSha256, ModelManager.Progress progress,
+                         AtomicBoolean cancel, String name, String category, String arch, String triggers) throws Exception {
+        ModelManager.validId(id);
+        if (url == null || !url.toLowerCase(Locale.US).startsWith("https://")) {
+            throw new IOException("LoRA 자동 설치에는 검증된 HTTPS 주소가 필요합니다");
+        }
+        File dest = new File(root, id + ".safetensors");
+        File part = new File(root, id + ".safetensors.part");
+        if (!ModelLeaseManager.shared().tryAcquireWrite(dest.getAbsolutePath())) {
+            throw new IOException("이미 설치 중이거나 사용 중인 LoRA입니다");
+        }
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setConnectTimeout(20000);
+            conn.setReadTimeout(60000);
+            conn.setInstanceFollowRedirects(true);
+            conn.setRequestProperty("Accept-Encoding", "identity");
+            int code = conn.getResponseCode();
+            if (code != 200) throw new IOException("LoRA 다운로드 HTTP " + code);
+            long total = conn.getContentLengthLong();
+            if (total > 0 && root.getUsableSpace() < total + 32L * 1024L * 1024L) {
+                throw new IOException("LoRA 설치에 필요한 저장 공간이 부족합니다");
+            }
+            long started = System.currentTimeMillis();
+            long done = 0;
+            try (InputStream in = new BufferedInputStream(conn.getInputStream());
+                 OutputStream out = new BufferedOutputStream(new java.io.FileOutputStream(part))) {
+                byte[] buf = new byte[1024 * 1024];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    if (cancel != null && cancel.get()) throw new CancellationException("LoRA 다운로드가 취소되었습니다");
+                    out.write(buf, 0, n);
+                    done += n;
+                    if (progress != null) progress.onProgress(done, total, Math.max(1L, System.currentTimeMillis() - started));
+                }
+            }
+            if (!part.isFile() || part.length() == 0) throw new IOException("빈 LoRA 파일입니다");
+            if (total > 0 && part.length() != total) throw new IOException("LoRA 다운로드가 완전히 끝나지 않았습니다");
+            if (expectedSha256 != null && !expectedSha256.trim().isEmpty()
+                    && !expectedSha256.equalsIgnoreCase(sha256(part))) {
+                throw new IOException("LoRA SHA-256 무결성 검사 실패");
+            }
+            if (!DownloadValidator.isSupportedModel(part)) throw new IOException("손상되었거나 지원되지 않는 LoRA 파일입니다");
+            AtomicModelFile.replace(part, dest);
+            saveMeta(dest.getName(), name, category, arch, triggers, false, 0.8f, false);
+            return dest;
+        } finally {
+            if (conn != null) conn.disconnect();
+            if (part.isFile()) part.delete();
+            ModelLeaseManager.shared().releaseWrite(dest.getAbsolutePath());
+        }
+    }
+
+    private static String sha256(File file) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
+            byte[] buf = new byte[1024 * 1024];
+            int n;
+            while ((n = in.read(buf)) != -1) md.update(buf, 0, n);
+        }
+        StringBuilder out = new StringBuilder(64);
+        for (byte b : md.digest()) out.append(String.format(Locale.US, "%02x", b));
+        return out.toString();
     }
 
     public void updateState(String id, boolean enabled, float weight, boolean favorite) {

@@ -670,6 +670,35 @@ public final class V14Activity extends Activity {
 
         if ("lora".equals(storeFilter)) {
             ui.card(content, ui.text("LoRA는 네이티브 엔진 전달 경로가 연결되어 있습니다. 실제 영향은 모델 호환성과 실기기 결과로 확인해야 하며, 호환되지 않는 조합은 실행되지 않습니다.", 12, ui.warn));
+            EditText loraSearch = ui.input("온라인 LoRA 검색어", "");
+            Button loraSearchBtn = ui.accentButton("검토된 LoRA 검색");
+            loraSearchBtn.setOnClickListener(v -> {
+                String query = loraSearch.getText().toString();
+                loraSearchBtn.setEnabled(false);
+                TaskRuntime.networkExecutor().submit(() -> {
+                    try {
+                        lastStoreResults = storeRepo.searchCivitaiSfw(query, "LoRA");
+                        runOnUiThread(() -> { loraSearchBtn.setEnabled(true); showModelStore(); });
+                    } catch (Exception e) {
+                        runOnUiThread(() -> { loraSearchBtn.setEnabled(true); Toast.makeText(this, "LoRA 검색 실패: " + e.getMessage(), Toast.LENGTH_LONG).show(); });
+                    }
+                });
+            });
+            LinearLayout onlineLora = ui.col();
+            onlineLora.addView(loraSearch);
+            onlineLora.addView(loraSearchBtn);
+            ui.card(content, onlineLora);
+            for (ModelStoreRepository.StoreItem item : lastStoreResults) {
+                if (!"LoRA".equalsIgnoreCase(item.kind) || item.downloadUrl == null) continue;
+                LinearLayout onlineCard = ui.col();
+                onlineCard.addView(ui.text(item.name + "\n" + item.source + " · " + item.architecture
+                        + "\n파일 크기: " + (item.sizeBytes > 0 ? (item.sizeBytes / 1024 / 1024) + " MB" : "확인 중")
+                        + " · " + item.license, 13, ui.text));
+                Button install = ui.accentButton("LoRA 자동 설치");
+                install.setOnClickListener(v -> showLoraDownloadDialog(item));
+                onlineCard.addView(install);
+                ui.card(content, onlineCard);
+            }
             Button importLora = ui.accentButton("로컬 LoRA (.safetensors) 가져오기");
             importLora.setOnClickListener(v -> openPicker(REQ_IMPORT_LORA));
             ui.card(content, importLora);
@@ -1199,6 +1228,30 @@ public final class V14Activity extends Activity {
             final String negPrompt = negativeInput != null ? negativeInput.getText().toString() : prefs.getString("negative", "");
             final File vaeFile = vaeModel != null && vaeModel.isInstalled() ? vaeModel.file : null;
             final File modelFile = model.file;
+            File controlNetFile = null;
+            if (ctrlBmp != null && ctrlType != null && !"none".equalsIgnoreCase(ctrlType)) {
+                for (ModelManager.Model candidate : models.listByType(ModelManager.AssetType.CONTROLNET)) {
+                    if (candidate.isInstalled() && (candidate.name.toLowerCase(Locale.US).contains(ctrlType.toLowerCase(Locale.US))
+                            || candidate.id.toLowerCase(Locale.US).contains(ctrlType.toLowerCase(Locale.US)))) {
+                        controlNetFile = candidate.file;
+                        break;
+                    }
+                }
+                if (controlNetFile == null) {
+                    for (ModelManager.Model candidate : models.listByType(ModelManager.AssetType.CONTROLNET)) {
+                        if (candidate.isInstalled()) { controlNetFile = candidate.file; break; }
+                    }
+                }
+                if (controlNetFile == null) {
+                    final String requestedControl = ctrlType;
+                    runOnUiThread(() -> Toast.makeText(this,
+                            "ControlNet " + requestedControl + " 모델을 먼저 설치하세요.", Toast.LENGTH_LONG).show());
+                    if (generateBtn != null) generateBtn.setEnabled(true);
+                    if (cancelBtn != null) cancelBtn.setVisibility(View.GONE);
+                    return;
+                }
+            }
+            final File finalControlNetFile = controlNetFile;
 
             if (generateBtn != null) generateBtn.setEnabled(false);
             if (cancelBtn != null) cancelBtn.setVisibility(View.VISIBLE);
@@ -1211,7 +1264,7 @@ public final class V14Activity extends Activity {
 
                 GenerationQueue.Job job = new GenerationQueue.Job(
                         jobUid, modelFile, vaeFile,
-                        null, null, loraPaths, loraWeights, finalPrompt, negPrompt,
+                        finalControlNetFile, null, loraPaths, loraWeights, finalPrompt, negPrompt,
                         w, h, s, cfg, seed, batch, clipSkip, perf.recommendedThreads,
                         jobSampler, jobScheduler,
                         useVulkan, cpuFallback, true, true, vaeTiling,
@@ -1319,6 +1372,37 @@ public final class V14Activity extends Activity {
             });
         });
         dialog.setOnDismissListener(d -> DownloadCoordinator.shared().removeObserver(dlgObs));
+        dialog.show();
+    }
+
+    private void showLoraDownloadDialog(ModelStoreRepository.StoreItem item) {
+        LinearLayout body = ui.col();
+        ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        TextView msg = ui.text("대기 중", 13, ui.muted);
+        body.addView(bar);
+        body.addView(msg);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(item.name + " LoRA 설치")
+                .setView(body).setPositiveButton("시작", null).setNegativeButton("닫기", null).create();
+        java.util.concurrent.atomic.AtomicBoolean cancel = new java.util.concurrent.atomic.AtomicBoolean(false);
+        dialog.setOnShowListener(x -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            TaskRuntime.networkExecutor().submit(() -> {
+                try {
+                    String id = "civitai_" + item.id.replaceAll("[^A-Za-z0-9._-]", "_");
+                    File out = loras.download(id, item.downloadUrl, null, (done, total, elapsed) -> runOnUiThread(() -> {
+                        int percent = total > 0 ? (int) Math.min(100L, done * 100L / total) : 0;
+                        bar.setProgress(percent);
+                        double speed = elapsed > 0 ? done * 1000.0 / elapsed / (1024.0 * 1024.0) : 0;
+                        msg.setText(String.format(Locale.US, "%d%% · %.1f MB/s", percent, speed));
+                    }), cancel, item.name, "Style", item.architecture, "");
+                    runOnUiThread(() -> { dialog.dismiss(); Toast.makeText(this, "LoRA 설치 완료: " + out.getName(), Toast.LENGTH_SHORT).show(); showModelStore(); });
+                } catch (Exception e) {
+                    runOnUiThread(() -> { msg.setText("오류: " + e.getMessage()); dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true); });
+                }
+            });
+        }));
+        dialog.setOnDismissListener(d -> cancel.set(true));
         dialog.show();
     }
 
