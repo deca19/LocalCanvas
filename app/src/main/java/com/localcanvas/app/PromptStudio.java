@@ -40,6 +40,13 @@ public final class PromptStudio {
         CATEGORIES.put("조명", new String[]{"cinematic lighting", "soft lighting", "rim light", "volumetric lighting", "sunset", "neon lights", "backlighting"});
         CATEGORIES.put("구도/화풍", new String[]{"anime style", "webtoon style", "watercolor", "oil painting", "cel shading", "depth of field", "wide shot", "close-up", "colorful", "monochrome"});
 
+        CATEGORIES.put("자연", new String[]{"mountain", "river", "lake", "ocean", "waterfall", "meadow", "desert", "snow", "rain", "fog", "clouds", "stars", "moon", "sunrise", "autumn leaves", "pine trees", "wildflowers", "island", "valley", "cliff"});
+        CATEGORIES.put("건축", new String[]{"library", "museum", "train station", "garden", "castle", "bridge", "market", "street", "rooftop", "greenhouse", "observatory", "workshop", "laboratory", "wooden house", "stone wall", "window", "courtyard"});
+        CATEGORIES.put("색상", new String[]{"pastel colors", "warm colors", "cool colors", "muted colors", "vibrant colors", "blue palette", "green palette", "golden tones", "earth tones", "high contrast", "low contrast"});
+        CATEGORIES.put("머리", new String[]{"black hair", "brown hair", "silver hair", "white hair", "blonde hair", "blue hair", "red hair", "curly hair", "straight hair", "wavy hair", "ponytail", "braid", "bangs", "side part", "long hair", "short hair"});
+        CATEGORIES.put("카메라", new String[]{"eye level", "low angle", "high angle", "bird's-eye view", "side view", "back view", "three-quarter view", "symmetrical composition", "rule of thirds", "panorama", "macro", "foreground", "background", "bokeh"});
+        CATEGORIES.put("소품", new String[]{"book", "umbrella", "backpack", "camera", "headphones", "notebook", "flower bouquet", "lantern", "teacup", "bicycle", "scarf", "glasses", "hat", "clock", "robot", "telescope"});
+        CATEGORIES.put("재질", new String[]{"wood", "glass", "metal", "ceramic", "paper texture", "fabric", "stone", "brushed metal", "matte finish", "glossy finish", "soft texture", "grainy texture"});
         KO_TO_EN.put("소녀", "1girl");
         KO_TO_EN.put("소년", "1boy");
         KO_TO_EN.put("단독", "solo");
