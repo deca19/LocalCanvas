@@ -1,0 +1,53 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.localcanvas.app'
+    compileSdk 35
+    ndkVersion '27.2.12479018'
+
+    defaultConfig {
+        applicationId 'com.localcanvas.app'
+        minSdk 29
+        targetSdk 35
+        versionCode 160
+        versionName '1.6.0'
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+        externalNativeBuild {
+            cmake {
+                arguments "-DSDCPP_DIR=${project.findProperty('sdCppDir') ?: ''}",
+                          "-DCMAKE_PREFIX_PATH=${System.getenv('CMAKE_PREFIX_PATH') ?: ''}",
+                          "-DSPIRV-Headers_DIR=${project.findProperty('spirvHeadersDir') ?: (System.getenv('SPIRV_HEADERS_DIR') ?: '')}",
+                          "-DLOCALCANVAS_REQUIRE_SDCPP=${project.findProperty('requireSdCpp') ?: 'OFF'}"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}

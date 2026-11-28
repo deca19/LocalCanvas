@@ -1,9 +1,16 @@
-name: Build LocalCanvas V15.4 APK
+name: Build LocalCanvas V16.0 APK
 
 on:
   workflow_dispatch:
   push:
-    paths: ['.github/workflows/build-apk.yml', 'LocalCanvas-v15.4-source.zip']
+    paths:
+      - '.github/workflows/build-apk.yml'
+      - 'app/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '*.gradle'
+      - 'gradle.properties'
 
 jobs:
   build:
@@ -25,21 +32,18 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: 4. Unpack and verify V15.4 source
+      - name: 4. Verify checked-out V16.0 source
         run: |
-          unzip -t LocalCanvas-v15.4-source.zip
-          rm -rf source
-          unzip -q LocalCanvas-v15.4-source.zip -d source
-          rm -rf app gradle .github build.gradle settings.gradle gradle.properties gradlew gradlew.bat
-          cp -a source/. .
-          rm -rf source
           test -f settings.gradle
           test -f build.gradle
           test -f app/build.gradle
           test -f gradlew
           test -f gradle/wrapper/gradle-wrapper.properties
-          grep -q "versionCode 154" app/build.gradle
+          grep -q "versionCode 160" app/build.gradle
           grep -q "V14Activity" app/src/main/AndroidManifest.xml
+          test -f app/src/main/cpp/CMakeLists.txt
+          test -f app/src/main/cpp/localcanvas_jni.cpp
+          test -f app/src/main/java/com/localcanvas/app/NativeEngine.java
           test -f gradle/wrapper/gradle-wrapper.jar
           unzip -t gradle/wrapper/gradle-wrapper.jar
           chmod +x gradlew
@@ -100,7 +104,7 @@ jobs:
           ./gradlew --no-daemon --stacktrace lint test assembleDebug \
             -PsdCppDir="$GITHUB_WORKSPACE/native/stable-diffusion.cpp" \
             -PspirvHeadersDir="$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers" \
-            -PrequireSdCpp=ON 2>&1 | tee "$GITHUB_WORKSPACE/v15.4-build.log"
+            -PrequireSdCpp=ON 2>&1 | tee "$GITHUB_WORKSPACE/v16.0-build.log"
           xml=$(find app/build/test-results -type f -name 'TEST-*.xml' 2>/dev/null)
           test -n "$xml"
           tests=$(grep -h -o 'tests="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
@@ -118,7 +122,7 @@ jobs:
           APK=$(find app/build/outputs/apk -name '*.apk' -type f | head -n 1)
           test -n "$APK"
           unzip -t "$APK"
-          if command -v aapt >/dev/null; then aapt dump badging "$APK" | grep -q "versionCode:'154'"; fi
+          if command -v aapt >/dev/null; then aapt dump badging "$APK" | grep -q "versionCode:'160'"; fi
           unzip -l "$APK" | grep -E 'lib/arm64-v8a/liblocalcanvas_native\.so'
           unzip -p "$APK" lib/arm64-v8a/liblocalcanvas_native.so > /tmp/liblocalcanvas_native.so
           file /tmp/liblocalcanvas_native.so | grep -E 'ELF 64-bit.*ARM aarch64'
@@ -134,18 +138,18 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: localcanvas-v15.4-build-report
+          name: localcanvas-v16.0-build-report
           path: |
-            v15.4-build.log
+            v16.0-build.log
             apk-sha256.txt
             app/build/reports/**
             app/build/test-results/**
           if-no-files-found: warn
 
-      - name: 11. Upload verified V15.4 APK
+      - name: 11. Upload verified V16.0 APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: localcanvas-v15.4-native-arm64-debug
+          name: localcanvas-v16.0-native-arm64-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
