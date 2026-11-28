@@ -1,4 +1,4 @@
-# LocalCanvas V15.4 Bug Tracker
+# LocalCanvas V16.1 Bug Tracker
 
 | Bug ID | 제목 | 심각도 | 발견 버전 | 관련 파일 | 근본 원인 | 수정 내용 | 테스트 방법 | 현재 상태 |
 |---|---|---|---|---|---|---|---|---|
@@ -10,3 +10,9 @@
 | LC-1535 | 앱 재시작 시 대기열 복구 미호출 | P1 | V15.2 | `V14Activity.java`, `GenerationQueue.java` | `restoreFromDisk` 호출 누락 | `onCreate`에서 `restoredOnce` 가드로 1회 복구 호출 | 앱 재시작 테스트 | `FIXED_UNVERIFIED` |
 | LC-1536 | SafeTensors 중복 JSON 키 허용 | P2 | V15.2 | `DownloadValidator.java` | `JsonParser.parseObject`가 중복 키 덮어씀 | `containsKey` 검사로 중복 키 즉시 거부 | `DownloadValidatorTest.rejectsDuplicateKeysInSafeTensorsHeader` | `FIXED_UNVERIFIED` (JUnit `BLOCKED`) |
 | LC-1537 | 로컬 빌드/실기기 환경 부재 | P0 | V14~V15.3 | 전체 프로젝트 | 샌드박스 VM에 `javac`/SDK/NDK/Gradle/실기기 없음 | GitHub Actions 워크플로 및 실기기 체크리스트 제공 | GitHub Actions + Galaxy S26 Ultra | `BLOCKED` |
+# Active V16.1 environment findings
+
+- `LOCAL-ENV-001` — Windows local Vulkan build is blocked by missing `glslc`; use the existing CI Linux Vulkan toolchain or install an official Vulkan shader compiler before claiming Vulkan verification.
+- `DEVICE-001` — No ADB device is connected; physical install and inference remain pending.
+
+

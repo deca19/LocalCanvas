@@ -1,4 +1,6 @@
-# LocalCanvas V15.3 기능 구현 현황표
+# LocalCanvas V16.1 기능 구현 현황표
+
+> 이번 세션에서 실제 코드/빌드로 확인된 범위: Java·리소스·Lint·단위 테스트, stable-diffusion.cpp ARM64 CPU 연동, 엔진 포함 APK 패키징. Vulkan·실기기·실제 모델 생성은 아직 검증하지 않음.
 
 | 영역 | 세부 기능 | 상태 | 근거 파일 | 비고 |
 |---|---|---|---|---|
@@ -20,3 +22,4 @@
 | 15. 저장공간 | 카테고리 용량, 캐시/임시파일 정리, 중복 SHA-256, JSON 백업/복원, v14→v15 마이그레이션 | `IMPLEMENTED` | `StorageCenter.java` | - |
 | 16. 진단 | 링 버퍼 로그, 오류 안내, 개인정보 제외 리포트 | `IMPLEMENTED` | `DiagnosticsCenter.java` | - |
 | CI / APK | GitHub Actions V15.3 (비순환 Wrapper 복구 + `lint test assembleDebug` + ARM64/JNI/Vulkan 검사) | `IMPLEMENTED` | `.github/workflows/build-apk.yml` | GitHub 푸시 권한 및 실행 `BLOCKED` |
+

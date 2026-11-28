@@ -1,4 +1,15 @@
-# LocalCanvas V15.4 Test Report
+# LocalCanvas V16.1 Test Report
+
+## 2026-11-28 execution
+
+- Gradle unit tests: PASS as part of `testDebugUnitTest`.
+- Android lint: PASS (`lintDebug`).
+- Resource/Java compilation: PASS.
+- Engine-enabled CPU native compilation: PASS.
+- APK packaging: PASS.
+- APK archive/ARM64/JNI inspection: PASS.
+- Model download and real image generation: NOT RUN; no Android device and no model were available.
+- Vulkan runtime and Galaxy S26 Ultra checks: NOT RUN.
 
 | 테스트 클래스 | 검증 항목 | 상태 | 비고 |
 |---|---|---|---|
@@ -11,3 +22,4 @@
 | Gradle 실행 | Wrapper 시작 | `BLOCKED` | Gradle 8.9 다운로드에서 `Network is unreachable` |
 | Java/리소스/C++/JNI/Unit/Lint | 실제 실행 | `BLOCKED` | 로컬 Android toolchain 미설치 |
 | APK/SD1.5/Vulkan/LoRA | 실제 런타임 | `BLOCKED` | 설치 APK 및 Galaxy S26 Ultra 필요 |
+

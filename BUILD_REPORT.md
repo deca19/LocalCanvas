@@ -1,4 +1,15 @@
-# LocalCanvas V15.4 Build Report
+# LocalCanvas V16.1 Build Report
+
+## 2026-11-28 local verification
+
+- `testDebugUnitTest lintDebug assembleDebug`: PASS.
+- Real stable-diffusion.cpp ARM64 CPU native compile: PASS (`dee497f4df67786a24a30b46176ebc188f247192`).
+- Engine-included `:app:assembleDebug`: PASS with `-PrequireSdCpp=ON -PenableVulkan=OFF`.
+- APK size: 59,800,998 bytes.
+- APK SHA-256: `CF60064BDA76716BA307D48FAB9F13EAE43AB0C5F27D9168BFF12FDB516BECAD`.
+- ELF check: `ELF64`, `AArch64`; JNI symbols for generation, upscaling, and Canny entrypoint present.
+- Physical device check: BLOCKED; `adb devices` reported no connected device.
+- Vulkan local check: BLOCKED; Windows environment has no `glslc`. Default project setting remains Vulkan ON and CI remains the authoritative Vulkan gate.
 
 ## Changes
 
@@ -19,3 +30,4 @@
 ## CI gate
 
 The V15.4 workflow runs Java/resource compilation, lint, JUnit, ARM64 native compilation, APK assembly, ELF/JNI/Vulkan checks, and uploads logs with `if: always()`. APK upload is allowed only after all gates pass.
+

@@ -21,7 +21,8 @@ android {
                 arguments "-DSDCPP_DIR=${project.findProperty('sdCppDir') ?: ''}",
                           "-DCMAKE_PREFIX_PATH=${System.getenv('CMAKE_PREFIX_PATH') ?: ''}",
                           "-DSPIRV-Headers_DIR=${project.findProperty('spirvHeadersDir') ?: (System.getenv('SPIRV_HEADERS_DIR') ?: '')}",
-                          "-DLOCALCANVAS_REQUIRE_SDCPP=${project.findProperty('requireSdCpp') ?: 'OFF'}"
+                          "-DLOCALCANVAS_REQUIRE_SDCPP=${project.findProperty('requireSdCpp') ?: 'OFF'}",
+                          "-DLOCALCANVAS_ENABLE_VULKAN=${project.findProperty('enableVulkan') ?: 'ON'}"
             }
         }
     }
@@ -51,3 +52,4 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }
+

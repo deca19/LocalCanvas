@@ -1,0 +1,15 @@
+.android-sdk/
+.gradle/
+.cxx/
+app/.cxx/
+app/build/
+local.properties
+native/
+spirv-build/
+spirv-build-ninja/
+spirv-install/
+spirv-headers/
+vulkan-headers/
+vulkan-hpp/
+*.log
+

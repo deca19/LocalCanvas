@@ -20,3 +20,10 @@
 - Added direct-file discovery only for an unambiguous, large root-level checkpoint file; other repositories remain manual-import entries.
 - Updated model-store and LoRA status text to distinguish connected code paths from unverified device-level results.
 
+# V16.1 session updates
+
+- Added a configurable Vulkan build flag while preserving Vulkan as the default.
+- Verified the real stable-diffusion.cpp ARM64 CPU integration and produced an engine-included APK.
+- Added reproducible development status and local-build evidence.
+
+

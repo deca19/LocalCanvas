@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(LOCALCANVAS_HAS_SDCPP 0)
 option(LOCALCANVAS_REQUIRE_SDCPP "Fail configuration when the real engine is absent" OFF)
+option(LOCALCANVAS_ENABLE_VULKAN "Build stable-diffusion.cpp with its Vulkan backend" ON)
 
 # Android Gradle's nested CMake configure must receive the SPIR-V package path
 # explicitly; relying only on the parent shell's CMAKE_PREFIX_PATH is not
@@ -48,7 +49,7 @@ if(SDCPP_DIR AND EXISTS "${SDCPP_DIR}/CMakeLists.txt")
 
     set(SD_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(SD_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(SD_VULKAN ON CACHE BOOL "" FORCE)
+    set(SD_VULKAN ${LOCALCANVAS_ENABLE_VULKAN} CACHE BOOL "" FORCE)
     set(SD_OPENCL OFF CACHE BOOL "" FORCE)
     add_subdirectory("${SDCPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion.cpp")
     target_include_directories(localcanvas_native PRIVATE "${SDCPP_DIR}/include")
@@ -68,3 +69,4 @@ find_library(android-lib android)
 find_library(jnigraphics-lib jnigraphics)
 find_library(vulkan-lib vulkan)
 target_link_libraries(localcanvas_native PRIVATE ${log-lib} ${android-lib} ${jnigraphics-lib} ${vulkan-lib})
+
