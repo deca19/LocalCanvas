@@ -57,7 +57,8 @@ public final class ModelStoreRepository {
         for (int i = 0; i < arr.length(); i++) {
             JSONObject o = arr.getJSONObject(i);
             String id = o.optString("id", "");
-            if (id.isEmpty()) continue;
+            if (id.isEmpty() || o.optBoolean("private", false) || o.optBoolean("gated", false)) continue;
+            if (!id.equals("stable-diffusion-v1-5/stable-diffusion-v1-5") && !id.equals("stabilityai/stable-diffusion-xl-base-1.0") && !id.equals("madebyollin/sdxl-vae-fp16-fix") && !id.equals("stabilityai/sd-vae-ft-mse-original")) continue;
             JSONArray tags = o.optJSONArray("tags");
             String arch = detectArch(id, tags);
             String kind = (tags != null && tags.toString().toLowerCase(Locale.US).contains("lora")) ? "LoRA" : "Checkpoint";
@@ -123,13 +124,13 @@ public final class ModelStoreRepository {
         if (items == null) return out;
         for (int i = 0; i < items.length(); i++) {
             JSONObject item = items.getJSONObject(i);
-            if (item.optBoolean("nsfw", false)) continue;
+            if (item.optBoolean("nsfw", true)) continue;
             String name = item.optString("name", "Unknown");
             String type = item.optString("type", "Checkpoint");
             JSONArray versions = item.optJSONArray("modelVersions");
             if (versions == null || versions.length() == 0) continue;
             JSONObject v0 = versions.getJSONObject(0);
-            String baseModel = v0.optString("baseModel", "SD 1.5");
+            String baseModel = v0.optString("baseModel", "Unknown");
             JSONArray files = v0.optJSONArray("files");
             String dlUrl = null;
             long sizeKb = 0;
@@ -152,7 +153,9 @@ public final class ModelStoreRepository {
         if (s.contains("flux")) return "FLUX";
         if (s.contains("sdxl") || s.contains("-xl")) return "SDXL";
         if (s.contains("sd3")) return "SD3.5";
-        return "SD 1.5";
+        if (s.contains("sd15") || s.contains("sd-1.5") || s.contains("stable-diffusion-v1-5")) return "SD 1.5";
+        if (s.contains("sd2") || s.contains("stable-diffusion-2")) return "SD 2.x";
+        return "Unknown";
     }
 
     private static String httpGet(String urlStr) throws Exception {
