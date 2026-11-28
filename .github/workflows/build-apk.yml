@@ -1,36 +1,151 @@
 name: Build LocalCanvas V15.4 APK
+
 on:
   workflow_dispatch:
   push:
     paths: ['.github/workflows/build-apk.yml', 'LocalCanvas-v15.4-source.zip']
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - name: Unpack verified source
-        run: |
-          unzip -t LocalCanvas-v15.4-source.zip
-          rm -rf source app gradle .github build.gradle settings.gradle gradle.properties gradlew gradlew.bat
-          unzip -q LocalCanvas-v15.4-source.zip -d source
-          cp -a source/. .
-          rm -rf source
-          test -f app/build.gradle
-          test -f gradle/wrapper/gradle-wrapper.jar
-          grep -q 'versionCode 154' app/build.gradle
-      - uses: actions/setup-java@v4
+      - name: 1. Checkout current commit only
+        uses: actions/checkout@v4
+
+      - name: 2. Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
+
+      - name: 3. Set up official Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Verify wrapper
+
+      - name: 4. Unpack and verify V15.4 source
         run: |
+          unzip -t LocalCanvas-v15.4-source.zip
+          rm -rf source
+          unzip -q LocalCanvas-v15.4-source.zip -d source
+          rm -rf app gradle .github build.gradle settings.gradle gradle.properties gradlew gradlew.bat
+          cp -a source/. .
+          rm -rf source
+          test -f settings.gradle
+          test -f build.gradle
+          test -f app/build.gradle
+          test -f gradlew
+          test -f gradle/wrapper/gradle-wrapper.properties
+          grep -q "versionCode 154" app/build.gradle
+          grep -q "V14Activity" app/src/main/AndroidManifest.xml
+          test -f gradle/wrapper/gradle-wrapper.jar
           unzip -t gradle/wrapper/gradle-wrapper.jar
           chmod +x gradlew
           ./gradlew --version
-          ./gradlew tasks --all >/tmp/gradle-tasks.txt
-      - name: Install Android toolchain
+
+      - name: 5. Install Android SDK NDK CMake and Vulkan tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build glslc libvulkan-dev unzip binutils file
+          SDKMANAGER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}" -type f -name sdkmanager | head -n 1)
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+
+      - name: 6. Fetch pinned stable-diffusion.cpp engine
+        run: |
+          git clone --recursive https://github.com/leejet/stable-diffusion.cpp.git native/stable-diffusion.cpp
+          git -C native/stable-diffusion.cpp checkout dee497f4df67786a24a30b46176ebc188f247192
+          git -C native/stable-diffusion.cpp submodule update --init --recursive
+          test "$(git -C native/stable-diffusion.cpp rev-parse HEAD)" = "dee497f4df67786a24a30b46176ebc188f247192"
+          grep -q 'find_package(SPIRV-Headers CONFIG REQUIRED)' native/stable-diffusion.cpp/ggml/src/ggml-vulkan/CMakeLists.txt
+
+      - name: 7. Install fixed SPIR-V and Vulkan headers
+        run: |
+          git clone --filter=blob:none https://github.com/KhronosGroup/SPIRV-Headers.git spirv-headers
+          git -C spirv-headers checkout f6f78c717057ac7f5f3ea021f3f962aaf9d4da7e
+          git clone --filter=blob:none https://github.com/KhronosGroup/Vulkan-Headers.git vulkan-headers
+          git -C vulkan-headers checkout d277a0a3cda9c682708c93279f0c72cd6b0ae3f3
+          git clone --filter=blob:none https://github.com/KhronosGroup/Vulkan-Hpp.git vulkan-hpp
+          git -C vulkan-hpp checkout a0e5b20775d56db4e4777fcac4b91b7d6893b496
+          cp -R vulkan-headers/include/vulkan native/stable-diffusion.cpp/ggml/src/
+          cp -R vulkan-headers/include/vk_video native/stable-diffusion.cpp/ggml/src/
+          # Vulkan-Hpp is header-only. Copy the exact header into the include
+          # directory used by ggml-vulkan (-I ggml/src), then verify the path
+          # the compiler will resolve rather than relying on a directory copy.
+          mkdir -p native/stable-diffusion.cpp/ggml/src/vulkan
+          test -f vulkan-hpp/vulkan/vulkan.hpp
+          cp vulkan-hpp/vulkan/vulkan.hpp native/stable-diffusion.cpp/ggml/src/vulkan/vulkan.hpp
+          test -s native/stable-diffusion.cpp/ggml/src/vulkan/vulkan.hpp
+          cmake -S spirv-headers -B spirv-build -DSPIRV_HEADERS_ENABLE_TESTS=OFF -DSPIRV_HEADERS_ENABLE_INSTALL=ON -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/spirv-install"
+          cmake --build spirv-build --target install
+          mkdir -p "$GITHUB_WORKSPACE/spirv-install/include" "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers"
+          cp -R spirv-headers/include/spirv "$GITHUB_WORKSPACE/spirv-install/include/"
+          cp -R spirv-headers/include/spirv native/stable-diffusion.cpp/ggml/src/
+          printf '%s\n' 'add_library(SPIRV-Headers INTERFACE)' 'add_library(SPIRV-Headers::SPIRV-Headers ALIAS SPIRV-Headers)' 'set_target_properties(SPIRV-Headers PROPERTIES' '  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/../../../include")' > "$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
+          ENGINE_VULKAN_CMAKE="$GITHUB_WORKSPACE/native/stable-diffusion.cpp/ggml/src/ggml-vulkan/CMakeLists.txt"
+          SPIRV_CONFIG="$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake"
+          sed -i "s|find_package(SPIRV-Headers CONFIG REQUIRED)|include($SPIRV_CONFIG)|" "$ENGINE_VULKAN_CMAKE"
+          grep -q "include($SPIRV_CONFIG)" "$ENGINE_VULKAN_CMAKE"
+          echo "SPIRV_HEADERS_DIR=$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers" >> "$GITHUB_ENV"
+
+      - name: 8. Compile Java, Resources, C++, JNI; run JUnit, Lint, and assembleDebug
+        run: |
+          set -o pipefail
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          export CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/spirv-install"
+          export SPIRV_HEADERS_DIR="$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers"
+          ./gradlew --no-daemon --stacktrace lint test assembleDebug \
+            -PsdCppDir="$GITHUB_WORKSPACE/native/stable-diffusion.cpp" \
+            -PspirvHeadersDir="$GITHUB_WORKSPACE/spirv-install/lib/cmake/SPIRV-Headers" \
+            -PrequireSdCpp=ON 2>&1 | tee "$GITHUB_WORKSPACE/v15.4-build.log"
+          xml=$(find app/build/test-results -type f -name 'TEST-*.xml' 2>/dev/null)
+          test -n "$xml"
+          tests=$(grep -h -o 'tests="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
+          failures=$(grep -h -o 'failures="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
+          errors=$(grep -h -o 'errors="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
+          skipped=$(grep -h -o 'skipped="[0-9]*"' $xml | awk -F'"' '{s+=$2} END{print s+0}')
+          echo "tests=$tests failures=$failures errors=$errors skipped=$skipped"
+          test "$tests" -gt 0
+          test "$skipped" -eq 0
+          test "$failures" -eq 0
+          test "$errors" -eq 0
+
+      - name: 9. Verify APK, ARM64 ELF, JNI symbols, Vulkan linkage, and SHA-256
+        run: |
+          APK=$(find app/build/outputs/apk -name '*.apk' -type f | head -n 1)
+          test -n "$APK"
+          unzip -t "$APK"
+          if command -v aapt >/dev/null; then aapt dump badging "$APK" | grep -q "versionCode:'154'"; fi
+          unzip -l "$APK" | grep -E 'lib/arm64-v8a/liblocalcanvas_native\.so'
+          unzip -p "$APK" lib/arm64-v8a/liblocalcanvas_native.so > /tmp/liblocalcanvas_native.so
+          file /tmp/liblocalcanvas_native.so | grep -E 'ELF 64-bit.*ARM aarch64'
+          readelf -Ws /tmp/liblocalcanvas_native.so | grep 'NativeEngine_nativeGenerateEx'
+          readelf -Ws /tmp/liblocalcanvas_native.so | grep 'NativeEngine_nativeUpscale'
+          readelf -Ws /tmp/liblocalcanvas_native.so | grep 'NativeEngine_nativePreprocessCanny'
+          if ! readelf -d /tmp/liblocalcanvas_native.so | grep -qE 'NEEDED.*libvulkan\.so'; then
+            readelf -Ws /tmp/liblocalcanvas_native.so | grep -qE 'ggml_vk|vkGetInstanceProcAddr'
+          fi
+          sha256sum "$APK" | tee "$GITHUB_WORKSPACE/apk-sha256.txt"
+
+      - name: 10. Upload build logs and test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: localcanvas-v15.4-build-report
+          path: |
+            v15.4-build.log
+            apk-sha256.txt
+            app/build/reports/**
+            app/build/test-results/**
+          if-no-files-found: warn
+
+      - name: 11. Upload verified V15.4 APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: localcanvas-v15.4-native-arm64-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
