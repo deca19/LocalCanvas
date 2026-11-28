@@ -22,11 +22,11 @@ public final class UiKit {
         this.ctx = c;
         this.dark = darkTheme;
         if (darkTheme) {
-            bg = 0xFF07070C; surface = 0xFF151521; button = 0xFF25253B;
-            text = 0xFFFAF8FF; muted = 0xFFAAA7BD; accent = 0xFFB89CFF;
+            bg = 0xFF080E20; surface = 0xFF111A31; button = 0xFF1B2A4A;
+            text = 0xFFF5F3FF; muted = 0xFFAAB4D0; accent = 0xFFB69CFF;
             good = 0xFF5EE0AD; warn = 0xFFFFB86C;
         } else {
-            bg = 0xFFF4F5FA; surface = 0xFFFFFFFF; button = 0xFFE4E6F2;
+            bg = 0xFFF3F5FC; surface = 0xFFFFFFFF; button = 0xFFE2E8F6;
             text = 0xFF161622; muted = 0xFF5E6075; accent = 0xFF6B4EFF;
             good = 0xFF0E9F6E; warn = 0xFFD97706;
         }
@@ -56,8 +56,9 @@ public final class UiKit {
         v.setText(s);
         v.setTextColor(color);
         v.setTextSize(size);
-        v.setPadding(dp(12), dp(6), dp(12), dp(6));
+        v.setPadding(dp(12), dp(7), dp(12), dp(7));
         v.setGravity(Gravity.CENTER_VERTICAL);
+        v.setIncludeFontPadding(true);
         return v;
     }
 
@@ -68,7 +69,8 @@ public final class UiKit {
         b.setTextColor(text);
         b.setTextSize(13);
         b.setAllCaps(false);
-        b.setMinHeight(dp(44));
+        b.setMinHeight(dp(48));
+        b.setPadding(dp(12), 0, dp(12), 0);
         GradientDrawable gd = new GradientDrawable();
         gd.setColor(button);
         gd.setCornerRadius(dp(10));
@@ -96,6 +98,11 @@ public final class UiKit {
         x.setTextSize(14);
         x.setMinHeight(dp(48));
         x.setPadding(dp(12), dp(4), dp(12), dp(4));
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(dark ? 0xFF0C1530 : 0xFFF8FAFF);
+        gd.setCornerRadius(dp(10));
+        gd.setStroke(dp(1), dark ? 0xFF2B3B61 : 0xFFD5DCEE);
+        x.setBackground(gd);
         return x;
     }
 
@@ -103,6 +110,7 @@ public final class UiKit {
         GradientDrawable gd = new GradientDrawable();
         gd.setColor(surface);
         gd.setCornerRadius(dp(12));
+        gd.setStroke(dp(1), dark ? 0xFF243454 : 0xFFE1E6F2);
         v.setBackground(gd);
         v.setPadding(dp(12), dp(10), dp(12), dp(10));
         LinearLayout.LayoutParams p = lp(-1, -2);

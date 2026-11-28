@@ -14,12 +14,15 @@
 - Built the real stable-diffusion.cpp ARM64 CPU path with `requireSdCpp=ON`.
 - Packaged an engine-included debug APK.
 - Verified APK ARM64 ELF architecture and JNI symbols.
+- Expanded model-store results to expose every eligible Hugging Face file and every Civitai version/file with a direct HTTPS download URL.
+- Replaced the unavailable native Canny preprocessing symbol with an in-app CPU Canny-style preview path.
+- Applied the V16.1 navy/lavender UI tokens, 48dp touch targets, input/card surfaces, and accessibility labels.
+- Confirmed GitHub Actions run `46129902303` passed the Vulkan link/inspection gate.
 - Confirmed no ADB device is connected; physical-device inference remains unverified.
 
 ## Resume point
 
-1. Install/use `glslc` and run the Vulkan build with `-PenableVulkan=ON`.
-2. Run full tests/lint against the engine-enabled configuration.
-3. If a device is connected, install the APK and verify model installation plus one SD 1.5 generation.
-4. Update the reports with the resulting logs and commit only source/report changes.
-
+1. If needed, install/use `glslc` locally and compare a Windows Vulkan build; CI already passed the Vulkan gate.
+2. If a device is connected, install the APK and verify model installation plus one SD 1.5 generation with Vulkan and CPU fallback.
+3. Continue wiring only engine-supported reference, ControlNet, and multi-character paths; do not label prompt concatenation as independent regional control.
+4. Keep runtime/model/device evidence separate from compile-time evidence in the reports.

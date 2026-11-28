@@ -70,6 +70,63 @@ public final class ImageEditProcessor {
         return Bitmap.createScaledBitmap(src, Math.max(64, targetW), Math.max(64, targetH), true);
     }
 
+    /**
+     * CPU Canny-style edge map for ControlNet previews. The result is a real
+     * binary RGB control image and can be passed to the native ControlNet path.
+     * Thresholds are normalized to [0,1]; weak/strong control the output levels.
+     */
+    public static Bitmap canny(Bitmap src, float highThreshold, float lowThreshold,
+                               float weak, float strong) {
+        if (src == null || src.getWidth() < 3 || src.getHeight() < 3) {
+            throw new IllegalArgumentException("Canny 입력 이미지가 너무 작습니다");
+        }
+        int w = src.getWidth(), h = src.getHeight();
+        int[] pixels = new int[w * h];
+        src.getPixels(pixels, 0, w, 0, 0, w, h);
+        float[] gray = new float[w * h];
+        for (int i = 0; i < pixels.length; i++) {
+            int p = pixels[i];
+            gray[i] = (0.299f * Color.red(p) + 0.587f * Color.green(p) + 0.114f * Color.blue(p)) / 255f;
+        }
+        float hi = Math.max(0.01f, Math.min(1f, highThreshold)) * 255f;
+        float lo = Math.max(0f, Math.min(highThreshold, lowThreshold)) * 255f;
+        int weakValue = Math.max(1, Math.min(255, Math.round(Math.max(0f, Math.min(1f, weak)) * 255f)));
+        int strongValue = Math.max(1, Math.min(255, Math.round(Math.max(0f, Math.min(1f, strong)) * 255f)));
+        int[] out = new int[w * h];
+        boolean[] strongEdge = new boolean[w * h];
+        boolean[] weakEdge = new boolean[w * h];
+        for (int y = 1; y < h - 1; y++) {
+            for (int x = 1; x < w - 1; x++) {
+                int i = y * w + x;
+                float gx = -gray[i - w - 1] - 2f * gray[i - 1] - gray[i + w - 1]
+                        + gray[i - w + 1] + 2f * gray[i + 1] + gray[i + w + 1];
+                float gy = -gray[i - w - 1] - 2f * gray[i - w] - gray[i - w + 1]
+                        + gray[i + w - 1] + 2f * gray[i + w] + gray[i + w + 1];
+                float magnitude = (float) (Math.sqrt(gx * gx + gy * gy) * 255f);
+                if (magnitude >= hi) strongEdge[i] = true;
+                else if (magnitude >= lo) weakEdge[i] = true;
+            }
+        }
+        for (int y = 1; y < h - 1; y++) {
+            for (int x = 1; x < w - 1; x++) {
+                int i = y * w + x;
+                boolean keep = strongEdge[i];
+                if (!keep && weakEdge[i]) {
+                    for (int dy = -1; dy <= 1 && !keep; dy++) {
+                        for (int dx = -1; dx <= 1; dx++) {
+                            if (strongEdge[(y + dy) * w + x + dx]) { keep = true; break; }
+                        }
+                    }
+                }
+                int value = keep ? (strongEdge[i] ? strongValue : weakValue) : 0;
+                out[i] = Color.rgb(value, value, value);
+            }
+        }
+        Bitmap result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        result.setPixels(out, 0, w, 0, 0, w, h);
+        return result;
+    }
+
     private static int align8(int v) {
         return Math.max(64, ((v + 7) / 8) * 8);
     }

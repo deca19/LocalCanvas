@@ -27,6 +27,8 @@ public final class ModelStoreRepository {
         public final String kind; // "Checkpoint", "LoRA", "VAE", "ControlNet"
         public final String license;
         public final String downloadUrl;
+        public String version;
+        public String fileName;
         public final long sizeBytes;
         public final long estimatedRamBytes;
         public final String description;
@@ -40,9 +42,19 @@ public final class ModelStoreRepository {
             this.kind = kind;
             this.license = lic;
             this.downloadUrl = url;
+            this.version = "";
+            this.fileName = "";
             this.sizeBytes = size;
             this.estimatedRamBytes = ram;
             this.description = desc;
+        }
+
+        public StoreItem(String src, String id, String name, String arch, String kind,
+                         String lic, String url, long size, long ram, String desc,
+                         String version, String fileName) {
+            this(src, id, name, arch, kind, lic, url, size, ram, desc);
+            this.version = version != null ? version : "";
+            this.fileName = fileName != null ? fileName : "";
         }
     }
 
@@ -64,10 +76,12 @@ public final class ModelStoreRepository {
             String kind = (tags != null && tags.toString().toLowerCase(Locale.US).contains("lora")) ? "LoRA" : "Checkpoint";
             String license = "HuggingFace (" + o.optString("license", "원문 확인") + ")";
             long estRam = arch.contains("XL") ? 6500L * 1024 * 1024 : 3800L * 1024 * 1024;
-            HfFile file = resolveSingleFile(id);
-            out.add(new StoreItem("HuggingFace", id.replace("/", "_") + (file != null ? "_" + file.name.hashCode() : ""), id, arch, kind, license,
-                    file != null ? file.url : null, file != null ? file.size : 0L, estRam,
-                    "Downloads: " + o.optLong("downloads", 0) + " · Likes: " + o.optLong("likes", 0)));
+            for (HfFile file : resolveFiles(id)) {
+                out.add(new StoreItem("HuggingFace", id.replace("/", "_") + "_" + file.name.hashCode(),
+                        id + " · " + file.name, arch, kind, license, file.url, file.size, estRam,
+                        "Downloads: " + o.optLong("downloads", 0) + " · Likes: " + o.optLong("likes", 0),
+                        "main", file.name));
+            }
         }
         return out;
     }
@@ -78,11 +92,12 @@ public final class ModelStoreRepository {
      * a download URL: diffusers component repositories remain manual/import
      * only until an explicit compatible file is selected.
      */
-    private HfFile resolveSingleFile(String repoId) {
+    private List<HfFile> resolveFiles(String repoId) {
+        List<HfFile> out = new ArrayList<>();
         try {
             JSONObject meta = new JSONObject(httpGet("https://huggingface.co/api/models/" + repoId + "?blobs=true&files_metadata=true"));
             JSONArray siblings = meta.optJSONArray("siblings");
-            if (siblings == null) return null;
+            if (siblings == null) return out;
             List<HfFile> candidates = new ArrayList<>();
             for (int i = 0; i < siblings.length(); i++) {
                 JSONObject s = siblings.optJSONObject(i);
@@ -96,9 +111,9 @@ public final class ModelStoreRepository {
                         "https://huggingface.co/" + repoId + "/resolve/main/" + name + "?download=true"));
             }
             candidates.sort(Comparator.comparingLong((HfFile f) -> f.size).reversed());
-            return candidates.size() == 1 ? candidates.get(0) : null;
+            return candidates;
         } catch (Exception ignored) {
-            return null;
+            return out;
         }
     }
 
@@ -129,21 +144,25 @@ public final class ModelStoreRepository {
             String type = item.optString("type", "Checkpoint");
             JSONArray versions = item.optJSONArray("modelVersions");
             if (versions == null || versions.length() == 0) continue;
-            JSONObject v0 = versions.getJSONObject(0);
-            String baseModel = v0.optString("baseModel", "Unknown");
-            JSONArray files = v0.optJSONArray("files");
-            String dlUrl = null;
-            long sizeKb = 0;
-            if (files != null && files.length() > 0) {
-                JSONObject f0 = files.getJSONObject(0);
-                dlUrl = f0.optString("downloadUrl", null);
-                sizeKb = (long) f0.optDouble("sizeKB", 0);
+            for (int vi = 0; vi < versions.length(); vi++) {
+                JSONObject version = versions.getJSONObject(vi);
+                String baseModel = version.optString("baseModel", "Unknown");
+                JSONArray files = version.optJSONArray("files");
+                if (files == null) continue;
+                for (int fi = 0; fi < files.length(); fi++) {
+                    JSONObject file = files.getJSONObject(fi);
+                    String dlUrl = file.optString("downloadUrl", null);
+                    String fileName = file.optString("name", "file-" + fi);
+                    if (dlUrl == null || !dlUrl.startsWith("https://")) continue;
+                    long sizeBytes = (long) file.optDouble("sizeKB", 0) * 1024L;
+                    long estRam = baseModel.toUpperCase(Locale.US).contains("XL") ? 6500L * 1024 * 1024 : 3800L * 1024 * 1024;
+                    String versionName = version.optString("name", "v" + (vi + 1));
+                    out.add(new StoreItem("Civitai", "civitai_" + item.optLong("id") + "_" + vi + "_" + fi,
+                            name + " · " + versionName + " · " + fileName, baseModel, type,
+                            "Civitai License", dlUrl, sizeBytes, estRam,
+                            "Version: " + versionName, versionName, fileName));
+                }
             }
-            long sizeBytes = sizeKb * 1024L;
-            long estRam = baseModel.toUpperCase(Locale.US).contains("XL") ? 6500L * 1024 * 1024 : 3800L * 1024 * 1024;
-            out.add(new StoreItem("Civitai", "civitai_" + item.optLong("id"), name, baseModel, type,
-                    "Civitai License", dlUrl, sizeBytes, estRam,
-                    "Version: " + v0.optString("name", "v1")));
         }
         return out;
     }

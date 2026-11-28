@@ -542,7 +542,7 @@ public final class V14Activity extends Activity {
             }
             TaskRuntime.fileExecutor().submit(() -> {
                 try {
-                    Bitmap edges = NativeEngine.nativePreprocessCanny(editSourceBitmap, 0.8f, 0.1f, 0.5f, 1.0f);
+                    Bitmap edges = ImageEditProcessor.canny(editSourceBitmap, 0.8f, 0.1f, 0.5f, 1.0f);
                     runOnUiThread(() -> { editCompareBitmap = edges; maskView.setBackgroundBitmap(edges); });
                 } catch (Exception e) {
                     runOnUiThread(() -> Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show());
