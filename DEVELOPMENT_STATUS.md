@@ -3,7 +3,7 @@
 ## Current baseline
 
 - Branch: `fix/v16.1-core`
-- Source baseline: `4993840` (`feat: connect V16.1 LoRA install and ControlNet routing`)
+- Latest source commit: `252f251014192ea6c348b03f3349a5993347a25b`
 - Engine baseline: stable-diffusion.cpp `dee497f4df67786a24a30b46176ebc188f247192`
 - Working environment: project-local Android SDK, NDK `27.2.12479018`, CMake `3.22.1`, Gradle `8.9`
 
@@ -22,7 +22,7 @@
 
 ## Resume point
 
-1. If needed, install/use `glslc` locally and compare a Windows Vulkan build; CI already passed the Vulkan gate.
-2. If a device is connected, install the APK and verify model installation plus one SD 1.5 generation with Vulkan and CPU fallback.
+1. Run the workflow against the latest source commit and retain the generated APK SHA-256.
+2. Complete source-level LoRA and ControlNet parameter audits before claiming runtime support.
 3. Continue wiring only engine-supported reference, ControlNet, and multi-character paths; do not label prompt concatenation as independent regional control.
 4. Keep runtime/model/device evidence separate from compile-time evidence in the reports.
