@@ -298,12 +298,41 @@ public final class V14Activity extends Activity {
         LinearLayout form = ui.col();
         form.addView(ui.text("모델: " + selectedModel + (selectedVae.isEmpty() ? "" : " · VAE: " + selectedVae), 14, ui.text));
 
+        genPreviewView = new ImageView(this);
+        genPreviewView.setAdjustViewBounds(true);
+        genPreviewView.setContentDescription("생성된 이미지 미리보기");
+        form.addView(genPreviewView, ui.lp(-1, -2));
+        genPreviewView.setMinimumHeight(ui.dp(180));
         promptInput = ui.input("프롬프트 (한글 또는 영어 태그)", prefs.getString("prompt", ""));
         negativeInput = ui.input("네거티브 프롬프트", prefs.getString("negative", "lowres, bad anatomy, blurry"));
         ui.field(form, "프롬프트", promptInput);
         ui.field(form, "네거티브 프롬프트", negativeInput);
         watch(promptInput, "prompt");
         watch(negativeInput, "negative");
+        final LinearLayout suggestionsRow = ui.col();
+        form.addView(suggestionsRow);
+        promptInput.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence t, int start, int count, int after) {}
+            public void onTextChanged(CharSequence t, int start, int before, int count) {
+                suggestionsRow.removeAllViews();
+                String raw = t.toString();
+                int comma = raw.lastIndexOf(',');
+                String prefix = raw.substring(comma + 1).trim();
+                if (prefix.length() < 2) return;
+                List<String> matches = prompts.suggestions(prefix);
+                for (int i = 0; i < Math.min(5, matches.size()); i++) {
+                    final String tag = matches.get(i);
+                    if (tag.equalsIgnoreCase(prefix)) continue;
+                    Button choice = ui.button(tag);
+                    choice.setOnClickListener(v -> {
+                        promptInput.setText(raw.substring(0, comma + 1) + (comma >= 0 ? " " : "") + tag + ", ");
+                        promptInput.setSelection(promptInput.length());
+                    });
+                    suggestionsRow.addView(choice);
+                }
+            }
+            public void afterTextChanged(Editable e) {}
+        });
 
         LinearLayout pTools = ui.row();
         Button koBtn = ui.button("한글→태그");
@@ -403,10 +432,7 @@ public final class V14Activity extends Activity {
         hiresCb.setOnCheckedChangeListener((b, c) -> prefs.edit().putBoolean("hires", c).apply());
         form.addView(hiresCb);
 
-        genPreviewView = new ImageView(this);
-        genPreviewView.setAdjustViewBounds(true);
-        genPreviewView.setContentDescription("생성된 이미지 미리보기");
-        form.addView(genPreviewView, ui.lp(-1, -2));
+
 
         genProgressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         genProgressBar.setMax(100);
@@ -938,6 +964,7 @@ public final class V14Activity extends Activity {
         List<GalleryRepository.GalleryItem> items = galleryRepo.listPaged(prefs.getString("gal_q", ""), galleryFavoritesOnly, galleryPage * 12, 12);
         if (items.isEmpty()) {
             ui.card(content, ui.text("표시할 이미지가 없습니다.", 14, ui.muted));
+            if (galleryPage > 0) { Button back = ui.button("이전 페이지"); back.setOnClickListener(v -> { galleryPage--; showGallery(); }); ui.card(content, back); }
             return;
         }
         for (GalleryRepository.GalleryItem item : items) {
@@ -956,7 +983,12 @@ public final class V14Activity extends Activity {
                     + (item.favorite ? " ★" : "") + (item.tags.isEmpty() ? "" : " · #" + item.tags), 12, ui.muted));
             ui.card(content, card);
         }
+        Button previousPage = ui.button("이전 페이지");
+        previousPage.setEnabled(galleryPage > 0);
+        previousPage.setOnClickListener(v -> { galleryPage--; showGallery(); });
+        ui.card(content, previousPage);
         Button nextPage = ui.button("다음 페이지");
+        nextPage.setEnabled(items.size() == 12);
         nextPage.setOnClickListener(v -> { galleryPage++; showGallery(); });
         ui.card(content, nextPage);
     }
