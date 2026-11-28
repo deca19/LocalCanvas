@@ -1,6 +1,6 @@
 # LocalCanvas V16.1 기능 구현 현황표
 
-> 이번 세션에서 실제 코드/빌드로 확인된 범위: Java·리소스·Lint·단위 테스트, stable-diffusion.cpp ARM64 CPU 연동, 엔진 포함 APK 패키징, CI Vulkan 검사, 모델 버전/파일 항목화, CPU Canny 미리보기. Vulkan 실시간 추론·실기기·실제 모델 생성은 아직 검증하지 않음.
+> 이번 세션에서 실제 코드/빌드로 확인된 범위: Java·리소스·Lint·단위 테스트, stable-diffusion.cpp ARM64 CPU 연동, 엔진 포함 APK 패키징, CI Vulkan 검사, 모델 버전/파일 항목화, CPU ControlNet 전처리 미리보기. Vulkan 실시간 추론·실기기·실제 모델 생성은 아직 검증하지 않음.
 
 | 영역 | 세부 기능 | 상태 | 근거 파일 | 비고 |
 |---|---|---|---|---|
@@ -8,7 +8,7 @@
 | 1. 엔진 | LoRA 네이티브 전달 (`jLoraPaths`/`jLoraWeights` JNI 연결 + `lora_apply_mode=at_runtime`) | `PARTIAL` | `localcanvas_jni.cpp`, `GenerationQueue.java`, `LoraManager.java` | JNI/Java wiring verified; device/model runtime still pending |
 | 2. 생성 설정 | Prompt/Negative, Seed, Steps, CFG, 해상도/비율, Batch, Sampler, Scheduler, CLIP Skip, Hires.fix, VAE | `IMPLEMENTED` | `V14Activity.java`, `GenerationQueue.java` | 실기기 검증 `BLOCKED` |
 | 3. LoRA | import/ON-OFF/강도/카테고리/트리거/캐릭터 연결 | `IMPLEMENTED` | `LoraManager.java`, `V14Activity.java` | - |
-| 4. 편집 | Img2Img, Inpaint(`MaskCanvasView`), Outpaint, 회전/자르기, CPU Canny preview, ESRGAN AI 업스케일 vs Bicubic 분리, 전/후 비교 | `PARTIAL` | `MaskCanvasView.java`, `ImageEditProcessor.java`, `V14Activity.java` | Depth/OpenPose/Lineart 등 전처리 및 네이티브 runtime은 모델/기기 검증 필요 |
+| 4. 편집 | Img2Img, Inpaint(`MaskCanvasView`), Outpaint, 회전/자르기, CPU Canny/Lineart/Scribble/SoftEdge/Depth-preview, ESRGAN AI 업스케일 vs Bicubic 분리, 전/후 비교 | `PARTIAL` | `MaskCanvasView.java`, `ImageEditProcessor.java`, `V14Activity.java` | Depth는 luminance proxy, OpenPose는 전용 모델 필요; 네이티브 runtime은 기기 검증 필요 |
 | 5. 스토어 | HuggingFace & Civitai(SFW `nsfw=false`) 검색, 버전별/파일별 직접 다운로드 항목, 로컬 import | `IMPLEMENTED` | `ModelStoreRepository.java`, `ModelManager.java` | 네트워크·설치 runtime 검증 `BLOCKED` |
 | 6. 다운로드 | HTTP 200/206/416, URL+ETag 바인딩, 재시도 상한(3회), 속도/ETA, SHA-256, GGUF/SafeTensors 전체 구조 파서, 원자 교체 | `IMPLEMENTED` | `ModelManager.java`, `DownloadValidator.java`, `AtomicModelFile.java`, `DownloadCoordinator.java` | `ModelManagerHttpIntegrationTest` 실행 `BLOCKED` |
 | 7. 모델 관리 | `ModelLeaseManager` 읽기/쓰기 락, ON/OFF, RAM/공간 확인 | `IMPLEMENTED` | `ModelLeaseManager.java`, `ModelManager.java` | - |

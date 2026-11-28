@@ -10,6 +10,8 @@
 - APK archive/ARM64/JNI inspection: PASS.
 - Incremental Java compilation after model-store/Canny/UI changes: PASS.
 - GitHub Actions V16.1 Vulkan link/inspection gate: PASS (`46129902303`).
+- GitHub Actions V16.1 latest-source build for commit `252f251014192ea6c348b03f3349a5993347a25b`: PASS (`46133822927`).
+- Actions APK archive, ARM64 ELF, JNI, Vulkan linkage, and SHA-256 checks: PASS.
 - Model download and real image generation: NOT RUN; no Android device and no model were available.
 - Vulkan runtime and Galaxy S26 Ultra checks: NOT RUN.
 

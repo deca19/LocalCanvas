@@ -12,6 +12,9 @@
 - Vulkan local check: BLOCKED; Windows environment has no `glslc`. Default project setting remains Vulkan ON and CI remains the authoritative Vulkan gate.
 - GitHub Actions V16.1 run `46129902303`: PASS, including the Vulkan link/inspection step. [Run log](https://github.com/deca19/LocalCanvas/actions/runs/46129902303)
 - Incremental Java verification after V16.1 changes: PASS (`:app:compileDebugJavaWithJavac`).
+- GitHub Actions run `46133822927` for commit `252f251014192ea6c348b03f3349a5993347a25b`: PASS, including Vulkan linkage and APK verification.
+- Actions APK SHA-256: `f19e127bc8f13d24753bc46e28d0b4bcc67bea2773b6782ff8deabca32cecc39`.
+- Actions APK artifact: [localcanvas-v16.1-native-arm64-debug](https://github.com/deca19/LocalCanvas/actions/runs/46133822927/artifacts/15259735522).
 
 ## Changes
 
